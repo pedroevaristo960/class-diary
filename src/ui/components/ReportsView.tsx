@@ -7,6 +7,15 @@ import type {
   ParticipationRecord,
   OccurrenceRecord,
 } from '../types';
+import {
+  Printer,
+  Users,
+  CheckCheck,
+  FileText,
+  User,
+  Check,
+  Loader2,
+} from 'lucide-react';
 
 interface ReportsViewProps {
   currentClass: Classroom;
@@ -16,6 +25,7 @@ interface ReportsViewProps {
   participations: ParticipationRecord[];
   occurrences: OccurrenceRecord[];
   onBack: () => void;
+  onToast: (msg: string, type: 'success' | 'info') => void;
 }
 
 type ReportType = 'class_overview' | 'student_individual' | 'attendance_map' | 'evaluations_summary';
@@ -27,9 +37,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   evaluations,
   participations,
   occurrences,
-  onBack,
+  onToast,
 }) => {
   const [reportType, setReportType] = useState<ReportType>('class_overview');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) =>
@@ -40,10 +51,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     sortedStudents[0]?.id || ''
   );
-
   const selectedStudent = sortedStudents.find((s) => s.id === selectedStudentId);
 
-  // Computations for Class Overview Table
+  // Table computations
   const tableData = useMemo(() => {
     const classSessions = attendances.filter((a) => a.classId === currentClass.id);
     const classEvals = evaluations.filter((e) => e.classId === currentClass.id);
@@ -89,8 +99,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     });
   }, [sortedStudents, attendances, evaluations, participations, occurrences, currentClass.id]);
 
-  const handlePrint = () => {
-    window.print();
+  const handleGeneratePdf = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      window.print();
+      onToast('✓ PDF gerado com sucesso', 'success');
+    }, 450);
   };
 
   const currentDateFormatted = new Date().toLocaleDateString('pt-PT', {
@@ -99,72 +114,95 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     year: 'numeric',
   });
 
-  return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation no-print">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
+  const reportOptions: Array<{ type: ReportType; title: string; desc: string; icon: React.ReactNode }> = [
+    {
+      type: 'class_overview',
+      title: 'Relatório da turma',
+      desc: 'Quadro geral com presenças, faltas e média de notas',
+      icon: <Users size={16} strokeWidth={2} />,
+    },
+    {
+      type: 'attendance_map',
+      title: 'Relatório de presenças',
+      desc: 'Mapa detalhado de frequência de cada aula',
+      icon: <CheckCheck size={16} strokeWidth={2} />,
+    },
+    {
+      type: 'evaluations_summary',
+      title: 'Relatório de avaliações',
+      desc: 'Pauta oficial de notas de testes e trabalhos',
+      icon: <FileText size={16} strokeWidth={2} />,
+    },
+    {
+      type: 'student_individual',
+      title: 'Relatório do aluno',
+      desc: 'Dossiê individual consolidado para reuniões',
+      icon: <User size={16} strokeWidth={2} />,
+    },
+  ];
 
-      <div className="view-header-action-row no-print">
+  return (
+    <div className="view-content-wrapper animate-page-in">
+      <div className="view-header-row no-print">
         <div>
-          <h1 className="view-page-title">Relatórios & PDF</h1>
-          <p className="view-page-subtitle">
-            Relatórios organizados e prontos para impressão oficial ou salvar em PDF
+          <h1 className="page-heading">Relatórios & PDF</h1>
+          <p className="page-description">
+            Exportação e impressão oficial em alta resolução para folha A4 · {currentClass.name}
           </p>
         </div>
 
         <button
           type="button"
-          className="btn btn-primary btn-large btn-print"
-          onClick={handlePrint}
+          className="btn btn-primary btn-large"
+          onClick={handleGeneratePdf}
+          disabled={isGenerating}
         >
-          🖨️ Gerar PDF / Imprimir
+          {isGenerating ? (
+            <>
+              <Loader2 size={15} strokeWidth={2.2} className="spin-animate" />
+              <span>Preparando relatório…</span>
+            </>
+          ) : (
+            <>
+              <Printer size={15} strokeWidth={2.2} />
+              <span>Gerar PDF / Imprimir</span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* Tabs to select report type */}
-      <div className="report-tabs-bar no-print">
-        <button
-          type="button"
-          className={`report-tab-btn ${reportType === 'class_overview' ? 'active' : ''}`}
-          onClick={() => setReportType('class_overview')}
-        >
-          📊 Relatório da turma
-        </button>
-        <button
-          type="button"
-          className={`report-tab-btn ${reportType === 'student_individual' ? 'active' : ''}`}
-          onClick={() => setReportType('student_individual')}
-        >
-          👤 Relatório do aluno
-        </button>
-        <button
-          type="button"
-          className={`report-tab-btn ${reportType === 'attendance_map' ? 'active' : ''}`}
-          onClick={() => setReportType('attendance_map')}
-        >
-          📋 Relatório de presenças
-        </button>
-        <button
-          type="button"
-          className={`report-tab-btn ${reportType === 'evaluations_summary' ? 'active' : ''}`}
-          onClick={() => setReportType('evaluations_summary')}
-        >
-          📝 Relatório de avaliações
-        </button>
+      {/* 4 Report Selector Cards */}
+      <div className="reports-selection-grid no-print">
+        {reportOptions.map((opt) => (
+          <button
+            key={opt.type}
+            type="button"
+            className={`report-option-card ${reportType === opt.type ? 'active' : ''}`}
+            onClick={() => setReportType(opt.type)}
+          >
+            <div className="report-option-icon-box">{opt.icon}</div>
+            <div className="report-option-content">
+              <span className="report-option-title">{opt.title}</span>
+              <p className="report-option-desc">{opt.desc}</p>
+            </div>
+            {reportType === opt.type && (
+              <span className="report-check-badge">
+                <Check size={13} strokeWidth={2.5} />
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Individual Student Picker if in student mode */}
+      {/* Student dropdown if individual report is active */}
       {reportType === 'student_individual' && (
-        <div className="student-report-picker-card no-print">
-          <label htmlFor="select-report-student">Selecione o Aluno:</label>
+        <div className="report-student-picker-strip no-print">
+          <label htmlFor="report-student-select">Aluno selecionado:</label>
           <select
-            id="select-report-student"
+            id="report-student-select"
             value={selectedStudentId}
             onChange={(e) => setSelectedStudentId(e.target.value)}
-            className="student-dropdown"
+            className="report-student-select"
           >
             {sortedStudents.map((s) => (
               <option key={s.id} value={s.id}>
@@ -175,16 +213,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
       )}
 
-      {/* PRINTABLE DOCUMENT CONTAINER */}
+      {/* PRINTABLE DOCUMENT SHEET (High contrast black & white on paper) */}
       <div className="printable-document-sheet">
-        {/* Document Official Header */}
         <div className="doc-school-header">
-          <div className="doc-header-main">
-            <h2 className="doc-school-title">REPÚBLICA DE ANGOLA</h2>
-            <h3 className="doc-subtitle">MINISTÉRIO DA EDUCAÇÃO</h3>
-            <h4 className="doc-diario-label">DIÁRIO DE TURMA • RELATÓRIO OFICIAL</h4>
-          </div>
-          <div className="doc-date-badge">Data de Emissão: {currentDateFormatted}</div>
+          <h2 className="doc-school-title">REPÚBLICA DE ANGOLA</h2>
+          <h3 className="doc-subtitle">MINISTÉRIO DA EDUCAÇÃO</h3>
+          <h4 className="doc-diario-label">DIÁRIO DE TURMA • RELATÓRIO OFICIAL</h4>
+          <span className="doc-date-badge">Data de Emissão: {currentDateFormatted}</span>
         </div>
 
         <div className="doc-meta-box">
@@ -257,15 +292,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <div>
                   <div className="doc-summary-cards">
                     <div className="doc-card">
-                      <span>Total de Presenças</span>
+                      <span>Presenças</span>
                       <strong>{studentRow?.presences || 0}</strong>
                     </div>
                     <div className="doc-card">
-                      <span>Total de Faltas</span>
+                      <span>Faltas</span>
                       <strong>{studentRow?.absences || 0}</strong>
                     </div>
                     <div className="doc-card">
-                      <span>Média das Avaliações</span>
+                      <span>Média Notas</span>
                       <strong>{studentRow?.avg || '—'}</strong>
                     </div>
                     <div className="doc-card">
@@ -274,7 +309,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     </div>
                   </div>
 
-                  <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>Notas nas Avaliações</h4>
+                  <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontSize: '13px' }}>
+                    Notas nas Avaliações
+                  </h4>
                   <table className="doc-table">
                     <thead>
                       <tr>
@@ -306,7 +343,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
                   {studentOccs.length > 0 && (
                     <div style={{ marginTop: '1.5rem' }}>
-                      <h4 style={{ marginBottom: '0.5rem' }}>Registo de Ocorrências</h4>
+                      <h4 style={{ marginBottom: '0.5rem', fontSize: '13px' }}>Registo de Ocorrências</h4>
                       <table className="doc-table">
                         <thead>
                           <tr>
@@ -349,12 +386,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       .filter((a) => a.classId === currentClass.id)
                       .sort((a, b) => a.date.localeCompare(b.date))
                       .map((session) => (
-                        <th key={session.id} style={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                        <th key={session.id} style={{ textAlign: 'center', fontSize: '11px' }}>
                           {session.date.split('-').slice(1).reverse().join('/')}
                         </th>
                       ))}
-                    <th style={{ textAlign: 'center' }}>Tot. Pres.</th>
-                    <th style={{ textAlign: 'center' }}>Tot. Faltas</th>
+                    <th style={{ textAlign: 'center' }}>Pres.</th>
+                    <th style={{ textAlign: 'center' }}>Faltas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -431,7 +468,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         )}
 
-        {/* Signatures Footer for Official PDF Output */}
+        {/* Signatures */}
         <div className="doc-signatures-row">
           <div className="doc-signature-line">
             <div className="line" />

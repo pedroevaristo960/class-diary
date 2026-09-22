@@ -1,51 +1,69 @@
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* Linear + Notion Desktop - Light Theme Palette */
+  --bg-canvas: #F8F9FB;
+  --bg-surface: #FFFFFF;
+  --bg-surface-soft: #F4F5F7;
+  --bg-surface-hover: #ECEEF2;
+  --bg-input: #FFFFFF;
 
-  /* Color Palette - Modern Slate & Clean Accents */
-  --bg-app: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-surface-elevated: #283548;
-  --bg-input: #0f172a;
-  
-  --border-subtle: #334155;
-  --border-strong: #475569;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #9CA3AF;
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --border-subtle: #E5E7EB;
+  --border-strong: #D1D5DB;
 
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-active: #1d4ed8;
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-soft: #EFF6FF;
 
-  --success: #10b981;
-  --success-hover: #059669;
-  --success-bg: rgba(16, 185, 129, 0.12);
+  --success: #16A34A;
+  --success-hover: #15803D;
+  --success-soft: #F0FDF4;
 
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-soft: #FEF2F2;
 
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning: #D97706;
+  --warning-hover: #B45309;
+  --warning-soft: #FFFBEB;
 
-  --info: #06b6d4;
-  --info-bg: rgba(6, 182, 212, 0.12);
+  /* Typography */
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Berkeley Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-full: 9999px;
+  /* Scale */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-body: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  /* Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 590;
 
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
+  /* Border Radii */
+  --radius-sm: 4px;
+  --radius-inputs: 6px;
+  --radius-buttons: 6px;
+  --radius-cards: 10px;
+  --radius-pills: 9999px;
+
+  /* Shadows (Extremely subtle desktop shadows) */
+  --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.05);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  /* Sidebar layout constants */
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
 }
 
 * {
@@ -55,25 +73,30 @@
 }
 
 body {
-  font-family: var(--font-sans);
-  background-color: var(--bg-app);
+  font-family: var(--font-inter);
+  font-feature-settings: 'cv01' on, 'ss03' on, 'zero' on;
+  background-color: var(--bg-canvas);
   color: var(--text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+  letter-spacing: -0.010em;
   user-select: none;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-canvas);
 }
 
 button, input, select, textarea {
   font-family: inherit;
   font-size: inherit;
+  letter-spacing: inherit;
 }
 
 button {
@@ -82,21 +105,21 @@ button {
   background: none;
 }
 
-/* Scrollbar Styling */
+/* Subtle modern scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-app);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: var(--radius-full);
+  background: #E5E7EB;
+  border-radius: var(--radius-pills);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
+  background: #D1D5DB;
 }

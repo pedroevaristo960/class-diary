@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import type { Classroom, Period } from '../types';
+import type { Classroom, Student, Period } from '../types';
+import { Plus, X, ArrowRight, Clock, Users } from 'lucide-react';
 
 interface ClassSelectorProps {
   classes: Classroom[];
+  students: Student[];
   onSelectClass: (c: Classroom) => void;
   onCreateClass: (data: { name: string; course: string; grade: string; period: Period }) => void;
 }
 
 export const ClassSelector: React.FC<ClassSelectorProps> = ({
   classes,
+  students,
   onSelectClass,
   onCreateClass,
 }) => {
@@ -37,66 +40,101 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
     setIsModalOpen(false);
   };
 
-  return (
-    <div className="view-container animate-fade-in">
-      <header className="main-header">
-        <div>
-          <h1 className="app-title">Diário de Turma</h1>
-          <p className="app-subtitle">Selecione uma turma para começar a aula</p>
-        </div>
-      </header>
+  const getStudentCount = (classId: string) => {
+    return students.filter((s) => s.classId === classId).length;
+  };
 
-      <div className="class-grid">
-        {classes.map((cls) => (
-          <button
-            key={cls.id}
-            type="button"
-            className="class-card"
-            onClick={() => onSelectClass(cls)}
-          >
-            <div className="class-card-badge">{cls.period}</div>
-            <h2 className="class-card-title">{cls.name}</h2>
-            <div className="class-card-subtitle">
-              {cls.grade && <span>{cls.grade}</span>}
-              {cls.grade && cls.course && <span> • </span>}
-              {cls.course && <span>{cls.course}</span>}
-            </div>
-            <div className="class-card-action">
-              <span>Abrir turma</span>
-              <span className="arrow-icon">→</span>
-            </div>
-          </button>
-        ))}
+  return (
+    <div className="view-content-wrapper animate-page-in">
+      <div className="view-header-row">
+        <div>
+          <h1 className="page-heading">Turmas</h1>
+          <p className="page-description">Selecione uma turma para continuar.</p>
+        </div>
 
         <button
           type="button"
-          className="class-card class-card-new"
+          className="btn btn-primary"
           onClick={() => setIsModalOpen(true)}
         >
-          <div className="plus-circle">+</div>
-          <span className="new-class-text">Criar turma</span>
+          <Plus size={15} strokeWidth={2.2} />
+          <span>Criar turma</span>
         </button>
       </div>
 
+      <div className="class-cards-grid">
+        {classes.map((cls) => {
+          const count = getStudentCount(cls.id);
+          return (
+            <div
+              key={cls.id}
+              className="class-card-item"
+              onClick={() => onSelectClass(cls)}
+            >
+              <div className="class-card-top-row">
+                <span className="class-badge-pill">
+                  <Clock size={11} strokeWidth={2} />
+                  <span>{cls.period}</span>
+                </span>
+                <span className="class-student-count-badge">
+                  <Users size={12} strokeWidth={2} />
+                  <span>{count} {count === 1 ? 'aluno' : 'alunos'}</span>
+                </span>
+              </div>
+
+              <h2 className="class-item-name">{cls.name}</h2>
+              <div className="class-item-details">
+                <span>{cls.course}</span>
+                <span className="detail-dot">·</span>
+                <span>{cls.grade} classe</span>
+              </div>
+
+              <div className="class-card-footer">
+                <span className="open-class-text">Acessar diário</span>
+                <ArrowRight size={14} strokeWidth={2} className="footer-arrow" />
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Create new class placeholder card */}
+        <button
+          type="button"
+          className="class-card-add"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <div className="add-icon-circle">
+            <Plus size={18} strokeWidth={2} />
+          </div>
+          <span className="add-class-title">Nova turma</span>
+          <span className="add-class-desc">Cadastre mais uma turma no diário</span>
+        </button>
+      </div>
+
+      {/* Modal Criar Turma */}
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-box animate-modal-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
-              <h2>Criar nova turma</h2>
+              <h3>Criar turma</h3>
               <button
                 type="button"
-                className="close-btn"
+                className="modal-close-btn"
                 onClick={() => setIsModalOpen(false)}
+                title="Fechar"
               >
-                ✕
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="class-name">Nome da turma</label>
+            <form onSubmit={handleSubmit} className="modal-form-body">
+              <div className="form-field">
+                <label htmlFor="input-class-name">Nome da turma</label>
                 <input
-                  id="class-name"
+                  id="input-class-name"
                   type="text"
                   placeholder="Ex: 11ª Informática"
                   value={name}
@@ -106,10 +144,10 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="class-course">Curso</label>
+              <div className="form-field">
+                <label htmlFor="input-class-course">Curso</label>
                 <input
-                  id="class-course"
+                  id="input-class-course"
                   type="text"
                   placeholder="Ex: Informática, Eletrónica, Ciências..."
                   value={course}
@@ -118,23 +156,23 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group flex-1">
-                  <label htmlFor="class-grade">Classe</label>
+              <div className="form-field-row">
+                <div className="form-field flex-1">
+                  <label htmlFor="input-class-grade">Classe</label>
                   <input
-                    id="class-grade"
+                    id="input-class-grade"
                     type="text"
-                    placeholder="Ex: 10ª, 11ª, 12ª"
+                    placeholder="Ex: 11ª"
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
                     required
                   />
                 </div>
 
-                <div className="form-group flex-1">
-                  <label htmlFor="class-period">Período</label>
+                <div className="form-field flex-1">
+                  <label htmlFor="input-class-period">Período</label>
                   <select
-                    id="class-period"
+                    id="input-class-period"
                     value={period}
                     onChange={(e) => setPeriod(e.target.value as Period)}
                   >
@@ -145,7 +183,7 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                 </div>
               </div>
 
-              <div className="modal-actions">
+              <div className="modal-actions-bar">
                 <button
                   type="button"
                   className="btn btn-secondary"

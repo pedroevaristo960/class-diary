@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Classroom, Student, AttendanceSession, AttendanceStatus } from '../types';
 import { generateId } from '../utils';
+import {
+  Calendar,
+  Play,
+  Zap,
+  Check,
+  X,
+  ArrowLeft,
+  ArrowRight,
+  RotateCcw,
+  Users,
+} from 'lucide-react';
 
 interface AttendanceViewProps {
   currentClass: Classroom;
@@ -15,31 +26,30 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   students,
   attendances,
   onSaveAttendance,
-  onBack,
 }) => {
-  // Default to today's date formatted
   const getTodayISO = () => new Date().toISOString().split('T')[0];
   const [sessionDate, setSessionDate] = useState<string>(getTodayISO());
 
-  // Active call mode
   const [isCalling, setIsCalling] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [currentRecords, setCurrentRecords] = useState<Record<string, AttendanceStatus>>({});
   const [mode, setMode] = useState<'sequential' | 'list'>('sequential');
+  const [justAnsweredFeedback, setJustAnsweredFeedback] = useState<'present' | 'absent' | null>(null);
 
   // Sorted list of students
   const sortedStudents = [...students].sort((a, b) =>
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
 
-  // Format date for UI (DD/MM/AAAA)
-  const formatDateBR = (iso: string) => {
+  // Format date: e.g. "22 de Setembro de 2026"
+  const formatDateFormal = (iso: string) => {
     if (!iso) return '';
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
+    const parts = iso.split('-');
+    if (parts.length < 3) return iso;
+    const dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  // Start new attendance call
   const startAttendance = (initialMode: 'sequential' | 'list', markAllPresent = false) => {
     const existing = attendances.find(
       (a) => a.classId === currentClass.id && a.date === sessionDate
@@ -52,7 +62,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       } else if (markAllPresent) {
         initialMap[student.id] = 'present';
       } else {
-        initialMap[student.id] = 'present'; // default present if quick
+        initialMap[student.id] = 'present';
       }
     }
 
@@ -62,37 +72,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     setIsCalling(true);
   };
 
-  // Handle single student response in sequential mode
-  const handleSequentialAnswer = (status: AttendanceStatus) => {
-    const student = sortedStudents[currentStepIndex];
-    if (!student) return;
-
-    const updated = {
-      ...currentRecords,
-      [student.id]: status,
-    };
-    setCurrentRecords(updated);
-
-    if (currentStepIndex + 1 < sortedStudents.length) {
-      setCurrentStepIndex(currentStepIndex + 1);
-    } else {
-      // Reached the last student!
-      finishAttendance(updated);
-    }
-  };
-
-  // Toggle student status in list mode
-  const toggleStudentStatus = (studentId: string) => {
-    const current = currentRecords[studentId] || 'present';
-    const next: AttendanceStatus = current === 'present' ? 'absent' : 'present';
-    setCurrentRecords({
-      ...currentRecords,
-      [studentId]: next,
-    });
-  };
-
-  // Save attendance
-  const finishAttendance = (recordsToSave = currentRecords) => {
+  const finishAttendance = useCallback((recordsToSave = currentRecords) => {
     const newSession: AttendanceSession = {
       id: generateId('att'),
       classId: currentClass.id,
@@ -102,34 +82,88 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     };
     onSaveAttendance(newSession);
     setIsCalling(false);
+  }, [currentClass.id, sessionDate, currentRecords, onSaveAttendance]);
+
+  const handleSequentialAnswer = useCallback((status: AttendanceStatus) => {
+    const student = sortedStudents[currentStepIndex];
+    if (!student) return;
+
+    const updated = {
+      ...currentRecords,
+      [student.id]: status,
+    };
+    setCurrentRecords(updated);
+
+    // Microinteraction feedback
+    setJustAnsweredFeedback(status);
+    setTimeout(() => setJustAnsweredFeedback(null), 180);
+
+    if (currentStepIndex + 1 < sortedStudents.length) {
+      setCurrentStepIndex((prev) => prev + 1);
+    } else {
+      finishAttendance(updated);
+    }
+  }, [currentStepIndex, sortedStudents, currentRecords, finishAttendance]);
+
+  // Keyboard navigation during sequential call
+  useEffect(() => {
+    if (!isCalling || mode !== 'sequential') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Avoid triggering when focused in an input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        return;
+      }
+
+      if (e.key === 'p' || e.key === 'P' || e.key === '1') {
+        e.preventDefault();
+        handleSequentialAnswer('present');
+      } else if (e.key === 'f' || e.key === 'F' || e.key === '2') {
+        e.preventDefault();
+        handleSequentialAnswer('absent');
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentStepIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentStepIndex((prev) => Math.min(sortedStudents.length - 1, prev + 1));
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsCalling(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCalling, mode, handleSequentialAnswer, sortedStudents.length]);
+
+  const toggleStudentStatus = (studentId: string) => {
+    const current = currentRecords[studentId] || 'present';
+    const next: AttendanceStatus = current === 'present' ? 'absent' : 'present';
+    setCurrentRecords({
+      ...currentRecords,
+      [studentId]: next,
+    });
   };
 
   const currentStudent = sortedStudents[currentStepIndex];
-
-  // Stats for the current records
   const presentCount = Object.values(currentRecords).filter((s) => s === 'present').length;
   const absentCount = Object.values(currentRecords).filter((s) => s === 'absent').length;
 
   return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
-
+    <div className="view-content-wrapper animate-page-in">
       {!isCalling ? (
-        <div className="attendance-landing animate-fade-in">
-          <div className="view-header-action-row">
+        <div className="attendance-landing-layout">
+          <div className="view-header-row">
             <div>
-              <h1 className="view-page-title">Presença</h1>
-              <p className="view-page-subtitle">
-                Chamada simplificada: apenas toque e avance
+              <h1 className="page-heading">Presença</h1>
+              <p className="page-description">
+                Chamada ágil e precisa · {currentClass.name}
               </p>
             </div>
 
-            <div className="date-picker-wrap">
-              <label htmlFor="att-date">Data da chamada:</label>
+            <div className="attendance-date-picker-box">
+              <Calendar size={14} strokeWidth={2} />
               <input
                 id="att-date"
                 type="date"
@@ -140,78 +174,79 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           </div>
 
           {sortedStudents.length === 0 ? (
-            <div className="empty-state-card">
-              <div className="empty-icon">⚠️</div>
-              <h3>Nenhum aluno nesta turma</h3>
-              <p>Cadastre alunos antes de iniciar a lista de chamada.</p>
+            <div className="clean-empty-state">
+              <div className="clean-empty-icon">
+                <Users size={32} strokeWidth={1.5} />
+              </div>
+              <h4>Nenhum aluno cadastrado para chamada</h4>
+              <p>Cadastre alunos nesta turma antes de iniciar o registro de frequência.</p>
             </div>
           ) : (
-            <div className="attendance-modes-container">
-              {/* Option 1: Sequential Calling */}
-              <div className="call-card-hero">
-                <div className="call-card-badge">Opção 1 — Mais Dinâmica</div>
-                <h2>Chamada Sequencial</h2>
-                <p>
-                  Mostra um aluno por vez na tela com botões grandes <strong>Presente</strong> e <strong>Falta</strong>. Tocou, passa automaticamente para o próximo.
+            <div className="attendance-entry-modes">
+              {/* Opção 1: Sequencial com foco */}
+              <div className="attendance-mode-card featured">
+                <div className="mode-badge-pill">Modo Principal</div>
+                <h3 className="mode-card-title">Chamada Sequencial</h3>
+                <p className="mode-card-desc">
+                  Apresenta um aluno por vez na tela com botões rápidos <strong>Presente</strong> e <strong>Falta</strong>. Pressione <strong>P</strong> ou <strong>F</strong> no teclado para avançar instantaneamente.
                 </p>
                 <button
                   type="button"
-                  className="btn btn-primary btn-xl"
+                  className="btn btn-primary btn-large"
                   onClick={() => startAttendance('sequential', false)}
                 >
-                  ▶ Iniciar Chamada ({formatDateBR(sessionDate)})
+                  <Play size={14} strokeWidth={2.2} fill="currentColor" />
+                  <span>Iniciar chamada ({formatDateFormal(sessionDate)})</span>
                 </button>
               </div>
 
-              {/* Option 2: Mark all present and toggle absents */}
-              <div className="call-card-secondary">
-                <div className="call-card-badge">Opção 2 — Ultra Rápida</div>
-                <h2>Marcar Todos Presentes</h2>
-                <p>
-                  Ideal quando quase todos vieram. Todos iniciam como presentes e você só toca nos que faltaram.
+              {/* Opção 2: Marcar todos presentes */}
+              <div className="attendance-mode-card">
+                <div className="mode-badge-pill">Ultra Rápido</div>
+                <h3 className="mode-card-title">Marcar todos como presentes</h3>
+                <p className="mode-card-desc">
+                  Ideal quando quase todos vieram. Todos começam como presentes e você só toca nos que faltaram.
                 </p>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-lg"
+                  className="btn btn-secondary btn-large"
                   onClick={() => startAttendance('list', true)}
                 >
-                  ⚡ Marcar todos e revisar faltas
+                  <Zap size={14} strokeWidth={2} />
+                  <span>Marcar todos e revisar</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Past attendance history for this class */}
-          {attendances.length > 0 && (
-            <div className="past-sessions-section">
-              <h3 className="section-subtitle">Chamadas anteriores registradas</h3>
-              <div className="past-sessions-grid">
+          {/* Chamadas anteriores */}
+          {attendances.filter((a) => a.classId === currentClass.id).length > 0 && (
+            <div className="past-attendance-section">
+              <h3 className="section-title">Chamadas anteriores</h3>
+              <div className="past-attendance-list">
                 {attendances
                   .filter((a) => a.classId === currentClass.id)
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((session) => {
-                    const presents = Object.values(session.records).filter(
-                      (s) => s === 'present'
-                    ).length;
-                    const absents = Object.values(session.records).filter(
-                      (s) => s === 'absent'
-                    ).length;
+                    const presents = Object.values(session.records).filter((s) => s === 'present').length;
+                    const absents = Object.values(session.records).filter((s) => s === 'absent').length;
                     return (
-                      <div key={session.id} className="past-session-card">
-                        <div className="session-date-tag">
-                          📅 {formatDateBR(session.date)}
+                      <div key={session.id} className="past-attendance-row">
+                        <div className="past-date-cell">
+                          <Calendar size={13} strokeWidth={2} />
+                          <span>{formatDateFormal(session.date)}</span>
                         </div>
-                        <div className="session-stats-pills">
-                          <span className="stat-pill present">
-                            🟢 {presents} presentes
+                        <div className="past-stats-cell">
+                          <span className="mini-tag tag-present">
+                            {presents} presentes
                           </span>
-                          <span className="stat-pill absent">
-                            🔴 {absents} faltas
+                          <span className="mini-tag tag-absent">
+                            {absents} faltas
                           </span>
                         </div>
                         <button
                           type="button"
-                          className="text-link-btn"
+                          className="btn-text-action"
                           onClick={() => {
                             setSessionDate(session.date);
                             setCurrentRecords(session.records);
@@ -230,134 +265,171 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           )}
         </div>
       ) : mode === 'sequential' && currentStudent ? (
-        /* SEQUENTIAL CALL SCREEN */
-        <div className="sequential-call-screen animate-fade-in">
-          <div className="call-progress-header">
-            <span className="call-session-title">
-              Presença — {formatDateBR(sessionDate)}
-            </span>
-            <span className="call-counter-badge">
-              {currentStepIndex + 1} de {sortedStudents.length}
-            </span>
+        /* SEQUENTIAL CALL INTERFACE (PRECISION INSTRUMENT) */
+        <div className="sequential-attendance-screen animate-page-in">
+          <div className="sequential-top-bar">
+            <div>
+              <span className="seq-date-label">{formatDateFormal(sessionDate)}</span>
+              <h2 className="seq-progress-counter">
+                {currentStepIndex + 1} de {sortedStudents.length}
+              </h2>
+            </div>
+
+            <div className="seq-controls-right">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setMode('list')}
+              >
+                <RotateCcw size={13} strokeWidth={2} />
+                <span>Ver em lista</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsCalling(false)}
+              >
+                Pausar
+              </button>
+            </div>
           </div>
 
-          <div className="call-progress-track">
+          <div className="seq-progress-track">
             <div
-              className="call-progress-bar"
+              className="seq-progress-fill"
               style={{
                 width: `${((currentStepIndex + 1) / sortedStudents.length) * 100}%`,
               }}
             />
           </div>
 
-          <div className="sequential-student-card">
-            <div className="student-big-avatar">
+          <div className={`sequential-card-focus ${justAnsweredFeedback ? `flash-${justAnsweredFeedback}` : ''}`}>
+            <div className="sequential-avatar-circle">
               {currentStudent.name.charAt(0).toUpperCase()}
             </div>
-            <h2 className="sequential-student-name">{currentStudent.name}</h2>
-            <p className="sequential-hint">Toque para registrar e avançar</p>
+            <h1 className="sequential-target-name">{currentStudent.name}</h1>
+            <p className="sequential-helper-tip">
+              Toque ou use o teclado: <strong>[P]</strong> Presente · <strong>[F]</strong> Falta
+            </p>
 
-            <div className="sequential-actions-row">
+            <div className="sequential-dual-actions">
               <button
                 type="button"
-                className="big-action-btn present-btn"
+                className="seq-btn seq-btn-present"
                 onClick={() => handleSequentialAnswer('present')}
               >
-                <span className="action-circle">🟢</span>
-                <span className="action-label">Presente</span>
+                <Check size={28} strokeWidth={2.5} />
+                <span className="seq-btn-title">Presente</span>
+                <span className="seq-btn-kbd">P</span>
               </button>
 
               <button
                 type="button"
-                className="big-action-btn absent-btn"
+                className="seq-btn seq-btn-absent"
                 onClick={() => handleSequentialAnswer('absent')}
               >
-                <span className="action-circle">🔴</span>
-                <span className="action-label">Falta</span>
+                <X size={28} strokeWidth={2.5} />
+                <span className="seq-btn-title">Falta</span>
+                <span className="seq-btn-kbd">F</span>
               </button>
             </div>
           </div>
 
-          <div className="call-footer-actions">
+          <div className="sequential-bottom-nav">
             <button
               type="button"
               className="btn btn-secondary"
               disabled={currentStepIndex === 0}
-              onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
+              onClick={() => setCurrentStepIndex((prev) => Math.max(0, prev - 1))}
             >
-              ← Aluno anterior
+              <ArrowLeft size={14} strokeWidth={2} />
+              <span>Anterior</span>
             </button>
 
-            <button
-              type="button"
-              className="text-link-btn"
-              onClick={() => setMode('list')}
-            >
-              Alternar para visão em lista
-            </button>
+            <div className="seq-mini-summary">
+              <span className="summary-pill green">
+                <Check size={12} strokeWidth={2} />
+                <span>{presentCount} presentes</span>
+              </span>
+              <span className="summary-pill red">
+                <X size={12} strokeWidth={2} />
+                <span>{absentCount} faltas</span>
+              </span>
+            </div>
 
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => finishAttendance()}
             >
-              Concluir presença ({presentCount}P / {absentCount}F)
+              <span>Concluir presença</span>
+              <ArrowRight size={14} strokeWidth={2} />
             </button>
           </div>
         </div>
       ) : (
         /* LIST / TOGGLE MODE SCREEN */
-        <div className="list-call-screen animate-fade-in">
-          <div className="view-header-action-row">
+        <div className="list-attendance-screen animate-page-in">
+          <div className="view-header-row">
             <div>
-              <h1 className="view-page-title">
-                Presença — {formatDateBR(sessionDate)}
-              </h1>
-              <p className="view-page-subtitle">
+              <h1 className="page-heading">Presença — {formatDateFormal(sessionDate)}</h1>
+              <p className="page-description">
                 Toque no aluno para alternar entre <strong>Presente</strong> e <strong>Falta</strong>
               </p>
             </div>
 
-            <div className="summary-pills-row">
-              <span className="stat-pill present">
-                🟢 {presentCount} Presentes
-              </span>
-              <span className="stat-pill absent">
-                🔴 {absentCount} Faltas
-              </span>
+            <div className="list-top-action-group">
+              <div className="summary-badges-group">
+                <span className="summary-pill green">
+                  <Check size={12} strokeWidth={2} />
+                  <span>{presentCount} presentes</span>
+                </span>
+                <span className="summary-pill red">
+                  <X size={12} strokeWidth={2} />
+                  <span>{absentCount} faltas</span>
+                </span>
+              </div>
+
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => finishAttendance()}
               >
-                Concluir presença ✓
+                <Check size={14} strokeWidth={2.2} />
+                <span>Concluir chamada</span>
               </button>
             </div>
           </div>
 
-          <div className="toggle-students-grid">
+          <div className="toggle-students-grid-clean">
             {sortedStudents.map((student) => {
               const isPresent = (currentRecords[student.id] || 'present') === 'present';
               return (
                 <button
                   key={student.id}
                   type="button"
-                  className={`student-toggle-card ${isPresent ? 'is-present' : 'is-absent'}`}
+                  className={`toggle-student-card ${isPresent ? 'is-present' : 'is-absent'}`}
                   onClick={() => toggleStudentStatus(student.id)}
                 >
-                  <div className="toggle-indicator">
-                    {isPresent ? '🟢' : '🔴'}
+                  <div className="toggle-card-status-icon">
+                    {isPresent ? (
+                      <Check size={14} strokeWidth={2.5} />
+                    ) : (
+                      <X size={14} strokeWidth={2.5} />
+                    )}
                   </div>
-                  <div className="toggle-name">{student.name}</div>
-                  <div className="toggle-badge">
-                    {isPresent ? 'Presente' : 'Falta'}
+                  <div className="toggle-card-body">
+                    <span className="toggle-student-name">{student.name}</span>
+                    <span className="toggle-status-label">
+                      {isPresent ? 'Presente' : 'Falta'}
+                    </span>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="list-call-footer">
+          <div className="list-call-bottom-bar">
             <button
               type="button"
               className="btn btn-secondary"
@@ -370,7 +442,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               className="btn btn-primary btn-large"
               onClick={() => finishAttendance()}
             >
-              Concluir presença ✓
+              <Check size={15} strokeWidth={2.2} />
+              <span>Concluir e Salvar Chamada</span>
             </button>
           </div>
         </div>

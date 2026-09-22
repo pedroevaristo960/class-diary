@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Classroom, Student } from '../types';
+import {
+  Search,
+  UserPlus,
+  Users,
+  Trash2,
+  X,
+  ArrowRight,
+  Check,
+  ChevronRight,
+} from 'lucide-react';
 
 interface StudentsViewProps {
   currentClass: Classroom;
@@ -7,6 +17,7 @@ interface StudentsViewProps {
   onAddStudent: (name: string) => void;
   onAddMultipleStudents: (names: string[]) => void;
   onDeleteStudent: (id: string) => void;
+  onSelectStudentForHistory: (student: Student) => void;
   onBack: () => void;
 }
 
@@ -16,37 +27,40 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onAddStudent,
   onAddMultipleStudents,
   onDeleteStudent,
-  onBack,
+  onSelectStudentForHistory,
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [singleName, setSingleName] = useState('');
 
-  // Batch addition state
+  // Batch states
   const [batchTargetCount, setBatchTargetCount] = useState<number>(10);
   const [isBatchTypingPhase, setIsBatchTypingPhase] = useState(false);
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
   const [currentBatchInput, setCurrentBatchInput] = useState('');
   const [collectedNames, setCollectedNames] = useState<string[]>([]);
+  const batchInputRef = useRef<HTMLInputElement>(null);
 
-  // Sort students alphabetically
-  const sortedStudents = [...students].sort((a, b) =>
-    a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
-  );
-
-  // Group by first letter
-  const groupedStudents: Record<string, Student[]> = {};
-  for (const student of sortedStudents) {
-    const firstLetter = (student.name.trim()[0] || '#').toUpperCase();
-    if (!groupedStudents[firstLetter]) {
-      groupedStudents[firstLetter] = [];
+  useEffect(() => {
+    if (isBatchTypingPhase) {
+      setTimeout(() => batchInputRef.current?.focus(), 60);
     }
-    groupedStudents[firstLetter].push(student);
-  }
+  }, [isBatchTypingPhase, currentBatchIndex]);
 
-  const sortedLetters = Object.keys(groupedStudents).sort((a, b) =>
-    a.localeCompare(b, 'pt-BR')
-  );
+  // Filter & sort students alphabetically
+  const filteredStudents = students
+    .filter((s) => s.name.toLowerCase().includes(searchTerm.toLowerCase().trim()))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+
+  // Group by letter
+  const grouped: Record<string, Student[]> = {};
+  filteredStudents.forEach((student) => {
+    const letter = (student.name.trim()[0] || '#').toUpperCase();
+    if (!grouped[letter]) grouped[letter] = [];
+    grouped[letter].push(student);
+  });
+  const letters = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   const handleSingleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +89,6 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
     setCurrentBatchInput('');
 
     if (currentBatchIndex + 1 >= batchTargetCount) {
-      // Completed all target count!
       onAddMultipleStudents(nextList);
       setIsBatchModalOpen(false);
       setIsBatchTypingPhase(false);
@@ -95,55 +108,77 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   };
 
   return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
-
-      <div className="view-header-action-row">
+    <div className="view-content-wrapper animate-page-in">
+      <div className="view-header-row">
         <div>
-          <h1 className="view-page-title">Alunos</h1>
-          <p className="view-page-subtitle">
-            {students.length} {students.length === 1 ? 'aluno' : 'alunos'} matriculados
+          <h1 className="page-heading">Alunos</h1>
+          <p className="page-description">
+            {currentClass.name} · {students.length} {students.length === 1 ? 'aluno matriculado' : 'alunos matriculados'}
           </p>
         </div>
 
-        <div className="header-action-buttons">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setIsSingleModalOpen(true)}
-          >
-            + Adicionar aluno
-          </button>
+        <div className="header-action-group">
           <button
             type="button"
             className="btn btn-secondary"
             onClick={() => {
               setIsBatchModalOpen(true);
               setIsBatchTypingPhase(false);
-              setBatchTargetCount(15);
+              setBatchTargetCount(10);
             }}
           >
-            Adicionar vários
+            <Users size={14} strokeWidth={2} />
+            <span>Adicionar vários</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setIsSingleModalOpen(true)}
+          >
+            <UserPlus size={14} strokeWidth={2.2} />
+            <span>Adicionar aluno</span>
           </button>
         </div>
       </div>
 
+      {/* Filter / Search Bar */}
+      <div className="notion-search-bar">
+        <Search size={15} strokeWidth={2} className="notion-search-icon" />
+        <input
+          type="text"
+          placeholder="Pesquisar aluno por nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="notion-search-input"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className="notion-search-clear"
+            onClick={() => setSearchTerm('')}
+            title="Limpar pesquisa"
+          >
+            <X size={13} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
       {students.length === 0 ? (
-        <div className="empty-state-card">
-          <div className="empty-icon">👥</div>
-          <h3>Nenhum aluno cadastrado nesta turma</h3>
-          <p>Adicione alunos individualmente ou use o modo rápido para cadastrar vários seguidos.</p>
-          <div className="empty-actions">
+        <div className="clean-empty-state">
+          <div className="clean-empty-icon">
+            <Users size={32} strokeWidth={1.5} />
+          </div>
+          <h4>Esta turma ainda não possui alunos</h4>
+          <p>Adicione um a um ou utilize a opção rápida para cadastrar vários alunos sequencialmente.</p>
+          <div className="empty-btn-group">
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => setIsSingleModalOpen(true)}
             >
-              + Adicionar primeiro aluno
+              <UserPlus size={14} strokeWidth={2} />
+              <span>Adicionar aluno</span>
             </button>
             <button
               type="button"
@@ -151,41 +186,56 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               onClick={() => {
                 setIsBatchModalOpen(true);
                 setIsBatchTypingPhase(false);
+                setBatchTargetCount(10);
               }}
             >
-              Adicionar vários
+              <Users size={14} strokeWidth={2} />
+              <span>Adicionar vários</span>
             </button>
           </div>
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="clean-empty-state">
+          <p>Nenhum aluno encontrado com o termo &quot;{searchTerm}&quot;</p>
+        </div>
       ) : (
-        <div className="alphabetical-student-list">
-          {sortedLetters.map((letter) => (
-            <div key={letter} className="letter-group">
-              <div className="letter-header">
-                <span className="letter-badge">{letter}</span>
-                <div className="letter-line" />
+        <div className="alphabetical-student-container">
+          {letters.map((letter) => (
+            <div key={letter} className="student-letter-section">
+              <div className="student-letter-heading">
+                <span className="letter-char">{letter}</span>
+                <div className="letter-divider" />
               </div>
 
-              <div className="students-group-cards">
-                {groupedStudents[letter].map((student) => (
-                  <div key={student.id} className="student-card-item">
-                    <div className="student-avatar">
+              <div className="student-rows-list">
+                {grouped[letter].map((student) => (
+                  <div
+                    key={student.id}
+                    className="student-table-row"
+                    onClick={() => onSelectStudentForHistory(student)}
+                  >
+                    <div className="student-avatar-badge">
                       {student.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className="student-info">
-                      <span className="student-name">{student.name}</span>
+                    <div className="student-row-info">
+                      <span className="student-row-name">{student.name}</span>
+                    </div>
+                    <div className="student-row-action">
+                      <span className="view-history-hint">Ver histórico</span>
+                      <ChevronRight size={14} strokeWidth={2} className="row-chevron" />
                     </div>
                     <button
                       type="button"
-                      className="delete-icon-btn"
-                      title="Remover aluno"
-                      onClick={() => {
+                      className="student-delete-btn"
+                      title={`Remover ${student.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (window.confirm(`Remover ${student.name} desta turma?`)) {
                           onDeleteStudent(student.id);
                         }
                       }}
                     >
-                      ✕
+                      <Trash2 size={13} strokeWidth={2} />
                     </button>
                   </div>
                 ))}
@@ -198,22 +248,23 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       {/* Modal: Adicionar 1 aluno */}
       {isSingleModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsSingleModalOpen(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box animate-modal-in" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Adicionar aluno</h2>
+              <h3>Adicionar aluno</h3>
               <button
                 type="button"
-                className="close-btn"
+                className="modal-close-btn"
                 onClick={() => setIsSingleModalOpen(false)}
+                title="Fechar"
               >
-                ✕
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
-            <form onSubmit={handleSingleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="student-name-input">Nome completo do aluno</label>
+            <form onSubmit={handleSingleSubmit} className="modal-form-body">
+              <div className="form-field">
+                <label htmlFor="name-input">Nome completo do aluno</label>
                 <input
-                  id="student-name-input"
+                  id="name-input"
                   type="text"
                   placeholder="Ex: Alberto Manuel"
                   value={singleName}
@@ -222,7 +273,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   required
                 />
               </div>
-              <div className="modal-actions">
+              <div className="modal-actions-bar">
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -242,29 +293,30 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       {/* Modal: Adicionar vários sequencial */}
       {isBatchModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsBatchModalOpen(false)}>
-          <div className="modal-box modal-box-wide" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box modal-box-wide animate-modal-in" onClick={(e) => e.stopPropagation()}>
             {!isBatchTypingPhase ? (
               <>
                 <div className="modal-header">
-                  <h2>Adicionar vários alunos</h2>
+                  <h3>Adicionar vários alunos</h3>
                   <button
                     type="button"
-                    className="close-btn"
+                    className="modal-close-btn"
                     onClick={() => setIsBatchModalOpen(false)}
+                    title="Fechar"
                   >
-                    ✕
+                    <X size={16} strokeWidth={2} />
                   </button>
                 </div>
-                <div className="modal-body-pad">
-                  <p className="modal-hint-text">
-                    Quantos alunos deseja cadastrar nesta sequência? Você digitará um a um com avanço rápido pelo botão <strong>Próximo →</strong> ou pressionando <strong>Enter</strong>.
+                <div className="modal-body-content">
+                  <p className="modal-helper-text">
+                    Escolha a quantidade de alunos para cadastrar nesta sequência. Você digitará o nome e avançará instantaneamente ao pressionar <strong>Enter</strong>.
                   </p>
-                  <div className="batch-counter-selection">
+                  <div className="batch-chips-selector">
                     {[5, 10, 15, 20, 25, 30].map((num) => (
                       <button
                         key={num}
                         type="button"
-                        className={`batch-pill-btn ${batchTargetCount === num ? 'active' : ''}`}
+                        className={`batch-chip ${batchTargetCount === num ? 'selected' : ''}`}
                         onClick={() => setBatchTargetCount(num)}
                       >
                         {num} alunos
@@ -272,20 +324,20 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     ))}
                   </div>
 
-                  <div className="form-group" style={{ marginTop: '1.25rem' }}>
-                    <label htmlFor="custom-count-input">Ou digite uma quantidade:</label>
+                  <div className="form-field" style={{ marginTop: '1rem' }}>
+                    <label htmlFor="custom-count-input">Ou especifique outra quantidade:</label>
                     <input
                       id="custom-count-input"
                       type="number"
                       min={1}
-                      max={100}
+                      max={80}
                       value={batchTargetCount}
                       onChange={(e) => setBatchTargetCount(Math.max(1, parseInt(e.target.value) || 1))}
                     />
                   </div>
                 </div>
 
-                <div className="modal-actions">
+                <div className="modal-actions-bar">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -298,13 +350,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                     className="btn btn-primary"
                     onClick={startBatchFlow}
                   >
-                    Iniciar cadastro rápido ({batchTargetCount}) →
+                    <span>Iniciar ({batchTargetCount} alunos)</span>
+                    <ArrowRight size={14} strokeWidth={2} />
                   </button>
                 </div>
               </>
             ) : (
-              <form onSubmit={handleBatchNext} className="batch-fast-form">
-                <div className="batch-progress-bar">
+              <form onSubmit={handleBatchNext} className="batch-fast-flow">
+                <div className="batch-progress-line">
                   <div
                     className="batch-progress-fill"
                     style={{
@@ -313,8 +366,8 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   />
                 </div>
 
-                <div className="batch-step-header">
-                  <span className="batch-step-indicator">
+                <div className="batch-flow-header">
+                  <span className="batch-step-counter">
                     Aluno {currentBatchIndex + 1} de {batchTargetCount}
                   </span>
                   {collectedNames.length > 0 && (
@@ -323,47 +376,56 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       className="text-link-btn"
                       onClick={finishBatchEarly}
                     >
-                      Concluir com os {collectedNames.length} adicionados
+                      Salvar os {collectedNames.length} já digitados
                     </button>
                   )}
                 </div>
 
-                <div className="form-group focus-big-group">
+                <div className="form-field focus-flow-field">
                   <label htmlFor="batch-name-input">Nome do aluno</label>
                   <input
+                    ref={batchInputRef}
                     id="batch-name-input"
                     type="text"
-                    className="big-name-input"
+                    className="input-large-flow"
                     placeholder="Digite o nome..."
                     value={currentBatchInput}
                     onChange={(e) => setCurrentBatchInput(e.target.value)}
                     autoFocus
                     required
                   />
-                  <span className="input-tip">Pressione <strong>Enter</strong> ou clique em Próximo</span>
+                  <span className="field-hint">
+                    Pressione <strong>Enter</strong> para salvar e ir para o próximo
+                  </span>
                 </div>
 
-                <div className="modal-actions">
+                <div className="modal-actions-bar">
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => {
-                      if (collectedNames.length > 0) {
-                        finishBatchEarly();
-                      } else {
-                        setIsBatchModalOpen(false);
-                        setIsBatchTypingPhase(false);
-                      }
+                      if (collectedNames.length > 0) finishBatchEarly();
+                      else setIsBatchModalOpen(false);
                     }}
                   >
-                    {collectedNames.length > 0 ? 'Salvar anteriores e sair' : 'Cancelar'}
+                    {collectedNames.length > 0 ? 'Concluir anteriores' : 'Cancelar'}
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-primary btn-large"
+                    className="btn btn-primary"
                     disabled={!currentBatchInput.trim()}
                   >
-                    {currentBatchIndex + 1 >= batchTargetCount ? 'Concluir cadastro ✓' : 'Próximo →'}
+                    {currentBatchIndex + 1 >= batchTargetCount ? (
+                      <>
+                        <Check size={14} strokeWidth={2.2} />
+                        <span>Concluir cadastro</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Próximo</span>
+                        <ArrowRight size={14} strokeWidth={2} />
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

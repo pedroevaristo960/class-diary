@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import type { Classroom, Student, ParticipationRecord, ParticipationType } from '../types';
 import { generateId } from '../utils';
+import {
+  Search,
+  Plus,
+  Minus,
+  X,
+  Users,
+} from 'lucide-react';
 
 interface ParticipationViewProps {
   currentClass: Classroom;
@@ -15,23 +22,20 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
   students,
   participations,
   onAddParticipation,
-  onBack,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [lastFeedback, setLastFeedback] = useState<string | null>(null);
 
-  // Filter students based on search term
   const sortedStudents = [...students].sort((a, b) =>
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
 
   const filteredStudents = sortedStudents.filter((s) =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    s.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
   );
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const handleRegisterParticipation = (student: Student, type: ParticipationType) => {
+  const handleRegister = (student: Student, type: ParticipationType) => {
     const record: ParticipationRecord = {
       id: generateId('part'),
       classId: currentClass.id,
@@ -40,115 +44,108 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
       type,
       timestamp: new Date().toISOString(),
     };
-
     onAddParticipation(record);
-
-    // Subtle feedback flash
-    const msg = type === 'positive' 
-      ? `+ Participação registrada para ${student.name}` 
-      : `− Não participou registrado para ${student.name}`;
-    setLastFeedback(msg);
-    setTimeout(() => {
-      setLastFeedback(null);
-    }, 2500);
   };
 
-  // Student's participation counts for this class
   const getStudentStats = (studentId: string) => {
     const studentParts = participations.filter(
       (p) => p.classId === currentClass.id && p.studentId === studentId
     );
-    const positive = studentParts.filter((p) => p.type === 'positive').length;
-    const negative = studentParts.filter((p) => p.type === 'negative').length;
-    return { positive, negative };
+    const pos = studentParts.filter((p) => p.type === 'positive').length;
+    const neg = studentParts.filter((p) => p.type === 'negative').length;
+    return { pos, neg };
   };
 
   return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
-
-      <div className="view-header-action-row">
+    <div className="view-content-wrapper animate-page-in">
+      <div className="view-header-row">
         <div>
-          <h1 className="view-page-title">Participação em Aula</h1>
-          <p className="view-page-subtitle">
-            Toque rápido para registrar a resposta do aluno sem interromper a aula
+          <h1 className="page-heading">Participação</h1>
+          <p className="page-description">
+            Registro rápido em 1 toque durante a aula · {currentClass.name}
           </p>
         </div>
       </div>
 
-      {lastFeedback && (
-        <div className="feedback-toast animate-slide-down">
-          {lastFeedback}
-        </div>
-      )}
-
-      {/* Quick Search */}
-      <div className="search-bar-wrap">
-        <span className="search-icon">🔍</span>
+      {/* Search */}
+      <div className="notion-search-bar">
+        <Search size={15} strokeWidth={2} className="notion-search-icon" />
         <input
           type="text"
-          placeholder="Buscar aluno por nome..."
+          placeholder="Pesquisar aluno por nome..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
+          className="notion-search-input"
         />
         {searchTerm && (
           <button
             type="button"
-            className="clear-search-btn"
+            className="notion-search-clear"
             onClick={() => setSearchTerm('')}
+            title="Limpar pesquisa"
           >
-            ✕
+            <X size={13} strokeWidth={2} />
           </button>
         )}
       </div>
 
-      {/* Quick touch grid */}
-      <div className="participation-grid">
-        {filteredStudents.map((student) => {
-          const stats = getStudentStats(student.id);
-          return (
-            <div key={student.id} className="participation-card">
-              <div className="part-student-main">
-                <span className="part-avatar">{student.name.charAt(0)}</span>
-                <div className="part-name-block">
-                  <span className="part-student-name">{student.name}</span>
-                  <div className="part-mini-badges">
-                    <span className="badge-pos">+{stats.positive}</span>
-                    <span className="badge-neg">−{stats.negative}</span>
+      {sortedStudents.length === 0 ? (
+        <div className="clean-empty-state">
+          <div className="clean-empty-icon">
+            <Users size={32} strokeWidth={1.5} />
+          </div>
+          <h4>Nenhum aluno nesta turma</h4>
+          <p>Cadastre alunos antes de registrar participações.</p>
+        </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="clean-empty-state">
+          <p>Nenhum aluno encontrado para &quot;{searchTerm}&quot;</p>
+        </div>
+      ) : (
+        <div className="participation-cards-grid-clean">
+          {filteredStudents.map((student) => {
+            const { pos, neg } = getStudentStats(student.id);
+            return (
+              <div key={student.id} className="participation-item-card">
+                <div className="part-card-left">
+                  <div className="part-avatar-badge">
+                    {student.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="part-card-info">
+                    <span className="part-name-title">{student.name}</span>
+                    <div className="part-score-badges">
+                      <span className="tag-part-pos">+{pos}</span>
+                      <span className="tag-part-neg">−{neg}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="part-actions-buttons">
-                <button
-                  type="button"
-                  className="btn-part-pos"
-                  onClick={() => handleRegisterParticipation(student, 'positive')}
-                  title="Registrar participação positiva"
-                >
-                  <span className="part-btn-symbol">+</span>
-                  <span>Participou</span>
-                </button>
+                <div className="part-card-buttons">
+                  <button
+                    type="button"
+                    className="part-btn-positive"
+                    onClick={() => handleRegister(student, 'positive')}
+                    title="Registrar participação positiva (+)"
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                    <span>Participou</span>
+                  </button>
 
-                <button
-                  type="button"
-                  className="btn-part-neg"
-                  onClick={() => handleRegisterParticipation(student, 'negative')}
-                  title="Registrar não participou"
-                >
-                  <span className="part-btn-symbol">−</span>
-                  <span>Não participou</span>
-                </button>
+                  <button
+                    type="button"
+                    className="part-btn-negative"
+                    onClick={() => handleRegister(student, 'negative')}
+                    title="Registrar não participou (-)"
+                  >
+                    <Minus size={13} strokeWidth={2.5} />
+                    <span>Não participou</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

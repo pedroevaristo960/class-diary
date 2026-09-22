@@ -7,6 +7,16 @@ import type {
   ParticipationRecord,
   OccurrenceRecord,
 } from '../types';
+import {
+  Search,
+  X,
+  CheckCircle2,
+  XCircle,
+  Award,
+  Sparkles,
+  AlertTriangle,
+  MinusCircle,
+} from 'lucide-react';
 
 interface StudentHistoryViewProps {
   currentClass: Classroom;
@@ -15,17 +25,20 @@ interface StudentHistoryViewProps {
   evaluations: EvaluationItem[];
   participations: ParticipationRecord[];
   occurrences: OccurrenceRecord[];
+  initialStudentId?: string;
   onBack: () => void;
 }
+
+type TimelineFilter = 'all' | 'present' | 'absent' | 'evaluation' | 'participation' | 'occurrence';
 
 interface TimelineEvent {
   id: string;
   date: string;
-  type: 'attendance_present' | 'attendance_absent' | 'evaluation' | 'participation_pos' | 'participation_neg' | 'occurrence';
-  title: string;
-  detail?: string;
-  badge: string;
-  badgeClass: string;
+  filterType: TimelineFilter;
+  badgeLabel: string;
+  description: string;
+  icon: React.ReactNode;
+  tagClass: string;
 }
 
 export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
@@ -35,7 +48,7 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
   evaluations,
   participations,
   occurrences,
-  onBack,
+  initialStudentId,
 }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) =>
@@ -44,32 +57,33 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
   }, [students]);
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
-    sortedStudents[0]?.id || ''
+    initialStudentId || sortedStudents[0]?.id || ''
   );
-  const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [filter, setFilter] = useState<TimelineFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const activeStudent = sortedStudents.find((s) => s.id === selectedStudentId);
 
-  // Format date helper: YYYY-MM-DD -> DD/MM
-  const formatShortDate = (iso: string) => {
+  // Format date helper: "22 SET" or "22 Setembro"
+  const formatDateDayMonth = (iso: string) => {
     if (!iso) return '';
     const parts = iso.split('-');
-    if (parts.length >= 3) return `${parts[2]}/${parts[1]}`;
-    return iso;
+    if (parts.length < 3) return iso;
+    const dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).toUpperCase();
   };
 
-  // Build stats and chronological timeline for active student
   const { stats, timeline } = useMemo(() => {
     if (!activeStudent) {
       return {
-        stats: { presences: 0, absences: 0, avgScore: '-', participations: 0, occurrences: 0 },
+        stats: { presences: 0, absences: 0, avgScore: '—', participations: 0, occurrences: 0 },
         timeline: [] as TimelineEvent[],
       };
     }
 
     let presences = 0;
     let absences = 0;
-    const studentEvents: TimelineEvent[] = [];
+    const events: TimelineEvent[] = [];
 
     // Attendances
     attendances
@@ -78,23 +92,25 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
         const status = session.records[activeStudent.id];
         if (status === 'present') {
           presences++;
-          studentEvents.push({
+          events.push({
             id: `att-${session.id}`,
             date: session.date,
-            type: 'attendance_present',
-            title: `${formatShortDate(session.date)} — Presente`,
-            badge: 'Presente',
-            badgeClass: 'badge-present',
+            filterType: 'present',
+            badgeLabel: 'Presente',
+            description: 'Presença confirmada na aula',
+            icon: <CheckCircle2 size={15} strokeWidth={2.2} />,
+            tagClass: 'timeline-tag-present',
           });
         } else if (status === 'absent') {
           absences++;
-          studentEvents.push({
+          events.push({
             id: `att-${session.id}`,
             date: session.date,
-            type: 'attendance_absent',
-            title: `${formatShortDate(session.date)} — Faltou`,
-            badge: 'Falta',
-            badgeClass: 'badge-absent',
+            filterType: 'absent',
+            badgeLabel: 'Faltou',
+            description: 'Ausência registrada na chamada',
+            icon: <XCircle size={15} strokeWidth={2.2} />,
+            tagClass: 'timeline-tag-absent',
           });
         }
       });
@@ -107,14 +123,14 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
         const score = ev.scores[activeStudent.id];
         if (score !== undefined) {
           scoresList.push(score);
-          studentEvents.push({
+          events.push({
             id: `ev-${ev.id}`,
             date: ev.date,
-            type: 'evaluation',
-            title: `${formatShortDate(ev.date)} — Avaliação: ${ev.title}`,
-            detail: `Nota obtida: ${score} / ${ev.maxScore} valores`,
-            badge: `${score} val`,
-            badgeClass: 'badge-eval',
+            filterType: 'evaluation',
+            badgeLabel: `${score} val`,
+            description: `${ev.type}: ${ev.title} (nota máxima ${ev.maxScore})`,
+            icon: <Award size={15} strokeWidth={2.2} />,
+            tagClass: 'timeline-tag-eval',
           });
         }
       });
@@ -126,22 +142,24 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
       .forEach((p) => {
         totalParts++;
         if (p.type === 'positive') {
-          studentEvents.push({
+          events.push({
             id: `part-${p.id}`,
             date: p.date,
-            type: 'participation_pos',
-            title: `${formatShortDate(p.date)} — Participou na aula`,
-            badge: '+ Participou',
-            badgeClass: 'badge-pos',
+            filterType: 'participation',
+            badgeLabel: '+ Participou',
+            description: 'Participação ativa e positiva durante a explicação',
+            icon: <Sparkles size={15} strokeWidth={2.2} />,
+            tagClass: 'timeline-tag-part-pos',
           });
         } else {
-          studentEvents.push({
+          events.push({
             id: `part-${p.id}`,
             date: p.date,
-            type: 'participation_neg',
-            title: `${formatShortDate(p.date)} — Não participou`,
-            badge: '− Não participou',
-            badgeClass: 'badge-neg',
+            filterType: 'participation',
+            badgeLabel: '− Não participou',
+            description: 'Não respondeu ou recusou participação solicitada',
+            icon: <MinusCircle size={15} strokeWidth={2.2} />,
+            tagClass: 'timeline-tag-part-neg',
           });
         }
       });
@@ -152,18 +170,19 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
       .filter((o) => o.classId === currentClass.id && o.studentId === activeStudent.id)
       .forEach((o) => {
         occCount++;
-        studentEvents.push({
+        events.push({
           id: `occ-${o.id}`,
           date: o.date,
-          type: 'occurrence',
-          title: `${formatShortDate(o.date)} — Indisciplina: ${o.reason.toLowerCase()}${o.note ? ` (${o.note})` : ''}`,
-          badge: o.reason,
-          badgeClass: 'badge-occurrence',
+          filterType: 'occurrence',
+          badgeLabel: o.reason,
+          description: `Indisciplina: ${o.reason}${o.note ? ` (${o.note})` : ''}`,
+          icon: <AlertTriangle size={15} strokeWidth={2.2} />,
+          tagClass: 'timeline-tag-occ',
         });
       });
 
-    // Sort timeline chronologically (most recent first)
-    studentEvents.sort((a, b) => b.date.localeCompare(a.date));
+    // Sort most recent first
+    events.sort((a, b) => b.date.localeCompare(a.date));
 
     const avgScore =
       scoresList.length > 0
@@ -178,49 +197,51 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
         participations: totalParts,
         occurrences: occCount,
       },
-      timeline: studentEvents,
+      timeline: events,
     };
   }, [activeStudent, attendances, evaluations, participations, occurrences, currentClass.id]);
 
-  // Filter timeline based on search
-  const filteredTimeline = useMemo(() => {
-    if (!historySearchQuery.trim()) return timeline;
-    const q = historySearchQuery.toLowerCase();
-    return timeline.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        (item.detail && item.detail.toLowerCase().includes(q)) ||
-        item.badge.toLowerCase().includes(q)
-    );
-  }, [timeline, historySearchQuery]);
+  // Apply filters and search
+  const filteredEvents = useMemo(() => {
+    return timeline.filter((item) => {
+      // Category filter
+      if (filter !== 'all' && item.filterType !== filter) {
+        return false;
+      }
+      // Text search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          item.description.toLowerCase().includes(q) ||
+          item.badgeLabel.toLowerCase().includes(q) ||
+          item.date.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [timeline, filter, searchQuery]);
 
   return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
-
-      <div className="view-header-action-row">
+    <div className="view-content-wrapper animate-page-in">
+      <div className="view-header-row">
         <div>
-          <h1 className="view-page-title">Histórico do Aluno</h1>
-          <p className="view-page-subtitle">
-            Dossiê completo e linha do tempo de acontecimentos
+          <h1 className="page-heading">Histórico do Aluno</h1>
+          <p className="page-description">
+            Linha do tempo e registro consolidado · {currentClass.name}
           </p>
         </div>
       </div>
 
-      {/* Student selector pills */}
-      <div className="student-select-strip">
+      {/* Horizontal Student Picker Strip (Notion tabs style) */}
+      <div className="student-selector-tabs-strip">
         {sortedStudents.map((s) => (
           <button
             key={s.id}
             type="button"
-            className={`student-strip-pill ${s.id === selectedStudentId ? 'active' : ''}`}
+            className={`student-tab-pill ${s.id === selectedStudentId ? 'active' : ''}`}
             onClick={() => {
               setSelectedStudentId(s.id);
-              setHistorySearchQuery('');
+              setSearchQuery('');
             }}
           >
             {s.name}
@@ -229,87 +250,110 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
       </div>
 
       {activeStudent ? (
-        <div className="student-profile-container animate-fade-in">
-          <div className="profile-header-card">
-            <div className="profile-avatar">
+        <div className="history-profile-layout">
+          {/* Header Card */}
+          <div className="history-student-card">
+            <div className="history-student-avatar">
               {activeStudent.name.charAt(0).toUpperCase()}
             </div>
-            <div className="profile-info">
-              <h2 className="profile-name">{activeStudent.name}</h2>
-              <span className="profile-class">{currentClass.name} • {currentClass.period}</span>
+            <div className="history-student-info">
+              <h2 className="history-student-name">{activeStudent.name}</h2>
+              <span className="history-student-class">
+                {currentClass.name} · {currentClass.period}
+              </span>
+            </div>
+
+            {/* Quick summary stats */}
+            <div className="history-stats-compact-row">
+              <div className="stat-compact-item">
+                <span className="stat-compact-val green">{stats.presences}</span>
+                <span className="stat-compact-lbl">Presenças</span>
+              </div>
+              <div className="stat-compact-item">
+                <span className="stat-compact-val red">{stats.absences}</span>
+                <span className="stat-compact-lbl">Faltas</span>
+              </div>
+              <div className="stat-compact-item">
+                <span className="stat-compact-val blue">{stats.avgScore}</span>
+                <span className="stat-compact-lbl">Média</span>
+              </div>
+              <div className="stat-compact-item">
+                <span className="stat-compact-val amber">{stats.occurrences}</span>
+                <span className="stat-compact-lbl">Ocorrências</span>
+              </div>
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="profile-stats-grid">
-            <div className="metric-box present-box">
-              <span className="metric-value">{stats.presences}</span>
-              <span className="metric-label">Presenças</span>
+          {/* Filters & Search Toolbar */}
+          <div className="timeline-toolbar">
+            <div className="timeline-filter-buttons">
+              {[
+                { key: 'all', label: 'Todos' },
+                { key: 'present', label: 'Presenças' },
+                { key: 'absent', label: 'Faltas' },
+                { key: 'evaluation', label: 'Avaliações' },
+                { key: 'participation', label: 'Participação' },
+                { key: 'occurrence', label: 'Indisciplina' },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`timeline-filter-btn ${filter === f.key ? 'active' : ''}`}
+                  onClick={() => setFilter(f.key as TimelineFilter)}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
-            <div className="metric-box absent-box">
-              <span className="metric-value">{stats.absences}</span>
-              <span className="metric-label">Faltas</span>
-            </div>
-            <div className="metric-box eval-box">
-              <span className="metric-value">{stats.avgScore}</span>
-              <span className="metric-label">Média Notas</span>
-            </div>
-            <div className="metric-box part-box">
-              <span className="metric-value">{stats.participations}</span>
-              <span className="metric-label">Participações</span>
-            </div>
-            <div className="metric-box occ-box">
-              <span className="metric-value">{stats.occurrences}</span>
-              <span className="metric-label">Ocorrências</span>
-            </div>
-          </div>
 
-          {/* Timeline Search */}
-          <div className="history-search-card">
-            <div className="search-bar-wrap">
-              <span className="search-icon">🔍</span>
+            <div className="timeline-search-box">
+              <Search size={14} strokeWidth={2} />
               <input
                 type="text"
-                placeholder="Pesquisar histórico (ex: conversa, falta, prova, data...)"
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-                className="search-input"
+                placeholder="Filtrar histórico..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              {historySearchQuery && (
+              {searchQuery && (
                 <button
                   type="button"
-                  className="clear-search-btn"
-                  onClick={() => setHistorySearchQuery('')}
+                  className="timeline-search-clear"
+                  onClick={() => setSearchQuery('')}
                 >
-                  ✕
+                  <X size={12} strokeWidth={2} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Chronological Timeline */}
-          <div className="timeline-container">
-            <h3 className="section-subtitle">Linha do Tempo Cronológica</h3>
-
-            {filteredTimeline.length === 0 ? (
-              <div className="empty-state-card">
-                <p>Nenhum registro encontrado no histórico para a pesquisa atual.</p>
+          {/* Vertical Modern Timeline (Notion Inspired) */}
+          <div className="notion-timeline-card">
+            {filteredEvents.length === 0 ? (
+              <div className="clean-empty-state-compact">
+                <p>Nenhum acontecimento registrado com os filtros selecionados.</p>
               </div>
             ) : (
-              <div className="timeline-list">
-                {filteredTimeline.map((item) => (
-                  <div key={item.id} className="timeline-item">
-                    <div className="timeline-dot" />
-                    <div className="timeline-content-card">
-                      <div className="timeline-main-row">
-                        <span className="timeline-title">{item.title}</span>
-                        <span className={`timeline-badge ${item.badgeClass}`}>
-                          {item.badge}
+              <div className="notion-timeline-list">
+                {filteredEvents.map((evt) => (
+                  <div key={evt.id} className="notion-timeline-row">
+                    <div className="timeline-date-col">
+                      <span className="timeline-date-badge">{formatDateDayMonth(evt.date)}</span>
+                    </div>
+
+                    <div className="timeline-node-col">
+                      <div className={`timeline-node-dot ${evt.tagClass}`}>
+                        {evt.icon}
+                      </div>
+                      <div className="timeline-stem-line" />
+                    </div>
+
+                    <div className="timeline-content-col">
+                      <div className="timeline-desc-line">
+                        <span className="timeline-main-desc">{evt.description}</span>
+                        <span className={`timeline-mini-badge ${evt.tagClass}`}>
+                          {evt.badgeLabel}
                         </span>
                       </div>
-                      {item.detail && (
-                        <p className="timeline-detail">{item.detail}</p>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -318,8 +362,8 @@ export const StudentHistoryView: React.FC<StudentHistoryViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="empty-state-card">
-          <h3>Nenhum aluno selecionado</h3>
+        <div className="clean-empty-state">
+          <p>Selecione um aluno para visualizar o histórico detalhado.</p>
         </div>
       )}
     </div>

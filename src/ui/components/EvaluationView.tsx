@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Classroom, Student, EvaluationItem, EvaluationType } from '../types';
 import { generateId } from '../utils';
+import {
+  Plus,
+  FileText,
+  Briefcase,
+  Award,
+  PenTool,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Calendar,
+  X,
+} from 'lucide-react';
 
 interface EvaluationViewProps {
   currentClass: Classroom;
@@ -15,29 +27,40 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
   students,
   evaluations,
   onSaveEvaluation,
-  onBack,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedType, setSelectedType] = useState<EvaluationType>('Teste');
   const [evalTitle, setEvalTitle] = useState('');
-  const [evalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
   const [maxScore] = useState(20);
 
   // Scores state: studentId -> score
   const [scores, setScores] = useState<Record<string, number>>({});
   const [activeStudentIndex, setActiveStudentIndex] = useState(0);
   const [currentScoreInput, setCurrentScoreInput] = useState('');
+  const scoreInputRef = useRef<HTMLInputElement>(null);
 
   // Sorted list of students
   const sortedStudents = [...students].sort((a, b) =>
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
 
-  const evaluationTypes: EvaluationType[] = ['Teste', 'Trabalho', 'Prova', 'Exercício'];
+  const evaluationTypes: Array<{ type: EvaluationType; icon: React.ReactNode }> = [
+    { type: 'Teste', icon: <FileText size={14} strokeWidth={2} /> },
+    { type: 'Trabalho', icon: <Briefcase size={14} strokeWidth={2} /> },
+    { type: 'Prova', icon: <Award size={14} strokeWidth={2} /> },
+    { type: 'Exercício', icon: <PenTool size={14} strokeWidth={2} /> },
+  ];
+
+  useEffect(() => {
+    if (isCreating) {
+      setTimeout(() => scoreInputRef.current?.focus(), 60);
+    }
+  }, [isCreating, activeStudentIndex]);
 
   const startNewEvaluation = () => {
     setIsCreating(true);
-    setEvalTitle(`${selectedType} ${evaluations.filter(e => e.classId === currentClass.id).length + 1}`);
+    setEvalTitle(`${selectedType} ${evaluations.filter((e) => e.classId === currentClass.id && e.type === selectedType).length + 1}`);
     setScores({});
     setActiveStudentIndex(0);
     setCurrentScoreInput('');
@@ -58,8 +81,9 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
     setScores(updated);
 
     if (activeStudentIndex + 1 < sortedStudents.length) {
-      setActiveStudentIndex(activeStudentIndex + 1);
-      const nextStudent = sortedStudents[activeStudentIndex + 1];
+      const nextIndex = activeStudentIndex + 1;
+      setActiveStudentIndex(nextIndex);
+      const nextStudent = sortedStudents[nextIndex];
       setCurrentScoreInput(updated[nextStudent.id] !== undefined ? String(updated[nextStudent.id]) : '');
     }
   };
@@ -90,68 +114,62 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
   const currentStudent = sortedStudents[activeStudentIndex];
 
   return (
-    <div className="view-container animate-fade-in">
-      <div className="top-navigation">
-        <button type="button" className="back-button" onClick={onBack}>
-          ← {currentClass.name}
-        </button>
-      </div>
-
+    <div className="view-content-wrapper animate-page-in">
       {!isCreating ? (
-        <div className="eval-landing">
-          <div className="view-header-action-row">
+        <div className="evaluations-landing">
+          <div className="view-header-row">
             <div>
-              <h1 className="view-page-title">Avaliações</h1>
-              <p className="view-page-subtitle">
-                Lance notas com avanço rápido aluno por aluno
+              <h1 className="page-heading">Avaliações</h1>
+              <p className="page-description">
+                Lançamento rápido e contínuo de notas · {currentClass.name}
               </p>
             </div>
 
             <button
               type="button"
-              className="btn btn-primary btn-large"
+              className="btn btn-primary"
               onClick={startNewEvaluation}
               disabled={sortedStudents.length === 0}
             >
-              + Nova Avaliação
+              <Plus size={15} strokeWidth={2.2} />
+              <span>Nova avaliação</span>
             </button>
           </div>
 
-          {/* Quick Start Type Selectors */}
-          <div className="eval-type-selector-card">
-            <h3>Escolha o tipo para lançar:</h3>
-            <div className="type-buttons-row">
-              {evaluationTypes.map((type) => (
+          {/* Quick Select Type */}
+          <div className="eval-type-bar">
+            <span className="eval-type-bar-label">Selecione o tipo de avaliação:</span>
+            <div className="eval-type-chips">
+              {evaluationTypes.map(({ type, icon }) => (
                 <button
                   key={type}
                   type="button"
-                  className={`type-pill-btn ${selectedType === type ? 'active' : ''}`}
+                  className={`type-chip-btn ${selectedType === type ? 'active' : ''}`}
                   onClick={() => {
                     setSelectedType(type);
-                    setEvalTitle(`${type} ${evaluations.filter(e => e.classId === currentClass.id && e.type === type).length + 1}`);
+                    setEvalTitle(`${type} ${evaluations.filter((e) => e.classId === currentClass.id && e.type === type).length + 1}`);
                   }}
                 >
-                  {type === 'Teste' && '📝 '}
-                  {type === 'Trabalho' && '📁 '}
-                  {type === 'Prova' && '🎯 '}
-                  {type === 'Exercício' && '✏️ '}
-                  {type}
+                  {icon}
+                  <span>{type}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Past evaluations list */}
-          <div className="evaluations-history-section">
-            <h3 className="section-subtitle">Avaliações já registradas</h3>
+          <div className="evaluations-list-section">
+            <h3 className="section-title">Avaliações registradas</h3>
             {evaluations.filter((e) => e.classId === currentClass.id).length === 0 ? (
-              <div className="empty-state-card">
-                <div className="empty-icon">📊</div>
-                <h3>Nenhuma avaliação registrada ainda</h3>
-                <p>Clique em "+ Nova Avaliação" acima para lançar notas.</p>
+              <div className="clean-empty-state">
+                <div className="clean-empty-icon">
+                  <FileText size={32} strokeWidth={1.5} />
+                </div>
+                <h4>Nenhuma avaliação registrada ainda</h4>
+                <p>Clique no botão &quot;Nova avaliação&quot; acima para registrar notas de testes ou trabalhos.</p>
               </div>
             ) : (
-              <div className="eval-cards-grid">
+              <div className="evaluations-grid-layout">
                 {evaluations
                   .filter((e) => e.classId === currentClass.id)
                   .map((ev) => {
@@ -160,24 +178,25 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
                     const avg =
                       scoresArray.length > 0
                         ? (scoresArray.reduce((a, b) => a + b, 0) / scoresArray.length).toFixed(1)
-                        : '-';
+                        : '—';
 
                     return (
-                      <div key={ev.id} className="eval-card">
-                        <div className="eval-card-top">
-                          <span className="eval-type-badge">{ev.type}</span>
-                          <span className="eval-date">{ev.date}</span>
+                      <div key={ev.id} className="evaluation-card-clean">
+                        <div className="eval-card-header">
+                          <span className="eval-card-badge">{ev.type}</span>
+                          <span className="eval-card-date">
+                            <Calendar size={12} strokeWidth={2} />
+                            <span>{ev.date}</span>
+                          </span>
                         </div>
-                        <h4 className="eval-card-title">{ev.title}</h4>
-                        <div className="eval-card-stats">
-                          <div>
-                            <span className="stat-label">Lançadas:</span>
-                            <strong> {scoredCount}/{sortedStudents.length}</strong>
-                          </div>
-                          <div>
-                            <span className="stat-label">Média da turma:</span>
-                            <strong className="stat-highlight"> {avg} val.</strong>
-                          </div>
+                        <h4 className="eval-card-name">{ev.title}</h4>
+                        <div className="eval-card-stats-row">
+                          <span className="eval-stat-text">
+                            Lançadas: <strong>{scoredCount}/{sortedStudents.length}</strong>
+                          </span>
+                          <span className="eval-stat-text">
+                            Média: <strong className="eval-avg-value">{avg} val</strong>
+                          </span>
                         </div>
                       </div>
                     );
@@ -188,125 +207,150 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
         </div>
       ) : (
         /* FAST EVALUATION ENTRY SCREEN */
-        <div className="evaluation-entry-screen animate-fade-in">
-          <div className="eval-entry-header">
+        <div className="evaluation-entry-wrapper animate-page-in">
+          <div className="eval-entry-topbar">
             <div>
-              <span className="eval-type-badge">{selectedType}</span>
-              <h2 className="eval-active-title">{evalTitle}</h2>
+              <div className="eval-entry-breadcrumbs">
+                <span>{selectedType}</span>
+                <span>·</span>
+                <span>Data: {evalDate}</span>
+              </div>
+              <h2 className="eval-entry-active-title">{evalTitle}</h2>
             </div>
-            <div className="eval-step-indicator">
-              Aluno {activeStudentIndex + 1} de {sortedStudents.length}
+
+            <div className="eval-entry-controls">
+              <span className="eval-student-indicator">
+                Aluno {activeStudentIndex + 1} de {sortedStudents.length}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsCreating(false)}
+                title="Fechar"
+              >
+                <X size={14} strokeWidth={2} />
+                <span>Cancelar</span>
+              </button>
             </div>
           </div>
 
-          {/* Sequential input form */}
-          {currentStudent && (
-            <form onSubmit={handleScoreAdvance} className="sequential-score-card">
-              <div className="student-big-avatar">
-                {currentStudent.name.charAt(0).toUpperCase()}
-              </div>
-              <h3 className="eval-student-name">{currentStudent.name}</h3>
-
-              <div className="score-input-container">
-                <label htmlFor="score-val">Nota (0 a {maxScore}):</label>
-                <div className="score-input-wrap">
-                  <input
-                    id="score-val"
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max={maxScore}
-                    autoFocus
-                    placeholder="Ex: 15"
-                    className="big-score-input"
-                    value={currentScoreInput}
-                    onChange={(e) => setCurrentScoreInput(e.target.value)}
-                  />
-                  <span className="score-max">/ {maxScore}</span>
+          <div className="evaluation-entry-two-col">
+            {/* Sequential Input Card */}
+            {currentStudent && (
+              <form onSubmit={handleScoreAdvance} className="eval-sequential-card">
+                <div className="eval-student-avatar">
+                  {currentStudent.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="input-tip">Pressione <strong>Enter</strong> para ir ao próximo aluno</span>
-              </div>
+                <h3 className="eval-student-title">{currentStudent.name}</h3>
 
-              <div className="score-quick-buttons">
-                {[10, 12, 14, 15, 16, 18, 20].map((quick) => (
+                <div className="eval-input-group-center">
+                  <label htmlFor="score-input-main">Nota (0 a {maxScore}):</label>
+                  <div className="eval-input-wrapper">
+                    <input
+                      ref={scoreInputRef}
+                      id="score-input-main"
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max={maxScore}
+                      placeholder="15"
+                      className="eval-score-input"
+                      value={currentScoreInput}
+                      onChange={(e) => setCurrentScoreInput(e.target.value)}
+                    />
+                    <span className="eval-max-label">/ {maxScore}</span>
+                  </div>
+                  <span className="eval-enter-hint">
+                    Pressione <strong>Enter</strong> para ir ao próximo aluno
+                  </span>
+                </div>
+
+                <div className="eval-shortcuts-row">
+                  {[10, 12, 14, 15, 16, 18, 20].map((quick) => (
+                    <button
+                      key={quick}
+                      type="button"
+                      className="quick-score-btn"
+                      onClick={() => {
+                        setCurrentScoreInput(String(quick));
+                      }}
+                    >
+                      {quick}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="eval-footer-nav-row">
                   <button
-                    key={quick}
                     type="button"
-                    className="quick-val-btn"
+                    className="btn btn-secondary"
+                    disabled={activeStudentIndex === 0}
                     onClick={() => {
-                      setCurrentScoreInput(String(quick));
+                      const prevIdx = activeStudentIndex - 1;
+                      setActiveStudentIndex(prevIdx);
+                      const prevStudent = sortedStudents[prevIdx];
+                      setCurrentScoreInput(scores[prevStudent.id] !== undefined ? String(scores[prevStudent.id]) : '');
                     }}
                   >
-                    {quick}
+                    <ArrowLeft size={14} strokeWidth={2} />
+                    <span>Anterior</span>
                   </button>
+
+                  <button type="submit" className="btn btn-primary">
+                    <span>{activeStudentIndex + 1 >= sortedStudents.length ? 'Avançar' : 'Próximo'}</span>
+                    <ArrowRight size={14} strokeWidth={2} />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Quick table of all entered scores */}
+            <div className="eval-scores-preview-panel">
+              <div className="eval-preview-header">
+                <h4>Quadro de Notas</h4>
+                <div className="eval-date-input-mini">
+                  <label htmlFor="eval-date-input">Data:</label>
+                  <input
+                    id="eval-date-input"
+                    type="date"
+                    value={evalDate}
+                    onChange={(e) => setEvalDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="eval-preview-rows-list">
+                {sortedStudents.map((s, idx) => (
+                  <div
+                    key={s.id}
+                    className={`eval-preview-row ${idx === activeStudentIndex ? 'current-active' : ''}`}
+                    onClick={() => {
+                      setActiveStudentIndex(idx);
+                      setCurrentScoreInput(scores[s.id] !== undefined ? String(scores[s.id]) : '');
+                    }}
+                  >
+                    <span className="preview-row-name">{s.name}</span>
+                    <span className="preview-row-val">
+                      {scores[s.id] !== undefined ? (
+                        <strong>{scores[s.id]} val</strong>
+                      ) : (
+                        <span className="not-set-val">—</span>
+                      )}
+                    </span>
+                  </div>
                 ))}
               </div>
 
-              <div className="eval-card-footer-nav">
+              <div className="eval-save-footer">
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  disabled={activeStudentIndex === 0}
-                  onClick={() => {
-                    const prevIdx = activeStudentIndex - 1;
-                    setActiveStudentIndex(prevIdx);
-                    const prevStudent = sortedStudents[prevIdx];
-                    setCurrentScoreInput(scores[prevStudent.id] !== undefined ? String(scores[prevStudent.id]) : '');
-                  }}
+                  className="btn btn-primary btn-full-width"
+                  onClick={saveCurrentEvaluation}
                 >
-                  ← Anterior
-                </button>
-
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-large"
-                >
-                  {activeStudentIndex + 1 >= sortedStudents.length ? 'Avançar' : 'Próximo →'}
+                  <Check size={14} strokeWidth={2.2} />
+                  <span>Concluir e Salvar Avaliação</span>
                 </button>
               </div>
-            </form>
-          )}
-
-          {/* Quick list review of all students */}
-          <div className="eval-review-table-card">
-            <h4>Visão Geral dos Lançamentos</h4>
-            <div className="eval-review-list">
-              {sortedStudents.map((s, idx) => (
-                <div
-                  key={s.id}
-                  className={`eval-review-item ${idx === activeStudentIndex ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveStudentIndex(idx);
-                    setCurrentScoreInput(scores[s.id] !== undefined ? String(scores[s.id]) : '');
-                  }}
-                >
-                  <span className="review-name">{s.name}</span>
-                  <span className="review-score">
-                    {scores[s.id] !== undefined ? (
-                      <strong>{scores[s.id]} val</strong>
-                    ) : (
-                      <span className="not-set">—</span>
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="eval-finish-bar">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsCreating(false)}
-              >
-                Descartar
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-large"
-                onClick={saveCurrentEvaluation}
-              >
-                Concluir e Salvar Avaliação ✓
-              </button>
             </div>
           </div>
         </div>
