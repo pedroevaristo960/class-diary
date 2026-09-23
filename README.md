@@ -1,3 +1,63 @@
+Class Diary
+
+O Class Diary é uma aplicação para professores gerirem digitalmente as suas turmas e realizarem o controlo de presença de forma rápida e organizada.
+
+Funcionalidades
+
+👨‍🏫 Perfil do Professor
+
+* Registo do nome do professor.
+* Definição da disciplina.
+* Organização das informações por professor.
+
+🏫 Gestão de Turmas
+
+* Criação de turmas.
+* Visualização das turmas.
+* Organização dos alunos por turma.
+
+👨‍🎓 Gestão de Alunos
+
+* Adição de alunos.
+* Visualização da lista de alunos.
+* Pesquisa de alunos.
+* Identificação individual dos estudantes.
+
+✅ Controlo de Presença
+
+* Início de uma chamada.
+* Registro de aluno presente.
+* Registro de ausência.
+* Registro de atraso.
+* Registro de falta justificada.
+* Avanço rápido entre os alunos.
+* Finalização da chamada.
+
+📋 Histórico
+
+* Consulta das chamadas realizadas.
+* Visualização dos registros de presença.
+* Acompanhamento do histórico dos alunos.
+
+📊 Acompanhamento
+
+* Resumo da presença da turma.
+* Visualização de faltas e atrasos.
+* Consulta rápida da situação de cada aluno.
+
+💾 Persistência
+
+* Salvamento dos registros realizados.
+* Preservação dos dados entre sessões.
+
+Objetivo
+
+O Class Diary foi criado para substituir o processo manual de chamada e tornar o acompanhamento das turmas mais rápido, simples e organizado.
+
+Menos tempo a fazer a chamada. Mais tempo para ensinar.
+
+
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
