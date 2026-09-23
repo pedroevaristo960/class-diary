@@ -12,6 +12,7 @@ import {
   Check,
   Calendar,
   X,
+  Trash2,
 } from 'lucide-react';
 
 interface EvaluationViewProps {
@@ -19,6 +20,7 @@ interface EvaluationViewProps {
   students: Student[];
   evaluations: EvaluationItem[];
   onSaveEvaluation: (evaluation: EvaluationItem) => void;
+  onDeleteEvaluation: (evalId: string) => void;
   onBack: () => void;
 }
 
@@ -27,12 +29,14 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
   students,
   evaluations,
   onSaveEvaluation,
+  onDeleteEvaluation,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedType, setSelectedType] = useState<EvaluationType>('Teste');
   const [evalTitle, setEvalTitle] = useState('');
   const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
   const [maxScore] = useState(20);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Scores state: studentId -> score
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -184,10 +188,20 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
                       <div key={ev.id} className="evaluation-card-clean">
                         <div className="eval-card-header">
                           <span className="eval-card-badge">{ev.type}</span>
-                          <span className="eval-card-date">
-                            <Calendar size={12} strokeWidth={2} />
-                            <span>{ev.date}</span>
-                          </span>
+                          <div className="eval-card-header-right">
+                            <span className="eval-card-date">
+                              <Calendar size={12} strokeWidth={2} />
+                              <span>{ev.date}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="card-delete-btn-sm"
+                              title={`Excluir ${ev.title}`}
+                              onClick={() => setDeleteConfirmId(ev.id)}
+                            >
+                              <Trash2 size={12} strokeWidth={2} />
+                            </button>
+                          </div>
                         </div>
                         <h4 className="eval-card-name">{ev.title}</h4>
                         <div className="eval-card-stats-row">
@@ -355,6 +369,57 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal: Confirmar exclusão de avaliação */}
+      {deleteConfirmId && (() => {
+        const evalToDelete = evaluations.find((e) => e.id === deleteConfirmId);
+        if (!evalToDelete) return null;
+        return (
+          <div className="modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+            <div className="modal-box animate-modal-in" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Excluir avaliação</h3>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setDeleteConfirmId(null)}
+                  title="Fechar"
+                >
+                  <X size={16} strokeWidth={2} />
+                </button>
+              </div>
+              <div className="modal-body-content">
+                <p className="modal-helper-text">
+                  Excluir <strong>{evalToDelete.title}</strong>?
+                </p>
+                <p className="delete-warning-text">
+                  As notas lançadas nesta avaliação serão removidas permanentemente.
+                </p>
+              </div>
+              <div className="modal-actions-bar">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setDeleteConfirmId(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    onDeleteEvaluation(deleteConfirmId);
+                    setDeleteConfirmId(null);
+                  }}
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                  <span>Excluir</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

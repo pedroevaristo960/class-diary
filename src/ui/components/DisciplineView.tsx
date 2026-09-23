@@ -10,6 +10,8 @@ import {
   FileEdit,
   Calendar,
   Check,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 interface DisciplineViewProps {
@@ -17,6 +19,7 @@ interface DisciplineViewProps {
   students: Student[];
   occurrences: OccurrenceRecord[];
   onAddOccurrence: (record: OccurrenceRecord) => void;
+  onDeleteOccurrence: (occId: string) => void;
   onBack: () => void;
 }
 
@@ -25,11 +28,13 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
   students,
   occurrences,
   onAddOccurrence,
+  onDeleteOccurrence,
 }) => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedReason, setSelectedReason] = useState<OccurrenceReason>('Conversa');
   const [dateVal, setDateVal] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const reasonList: Array<{ reason: OccurrenceReason; icon: React.ReactNode }> = [
     { reason: 'Conversa', icon: <MessageSquare size={13} strokeWidth={2} /> },
@@ -183,6 +188,14 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
                       {occ.date}
                     </span>
                     {occ.note && <span className="occ-note-text">· {occ.note}</span>}
+                    <button
+                      type="button"
+                      className="inline-delete-btn"
+                      title="Remover ocorrência"
+                      onClick={() => setDeleteConfirmId(occ.id)}
+                    >
+                      <Trash2 size={11} strokeWidth={2} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -190,6 +203,54 @@ export const DisciplineView: React.FC<DisciplineViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal: Confirmar exclusão de ocorrência */}
+      {deleteConfirmId && (() => {
+        const occToDelete = occurrences.find((o) => o.id === deleteConfirmId);
+        if (!occToDelete) return null;
+        return (
+          <div className="modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+            <div className="modal-box animate-modal-in" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Remover ocorrência</h3>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setDeleteConfirmId(null)}
+                  title="Fechar"
+                >
+                  <X size={16} strokeWidth={2} />
+                </button>
+              </div>
+              <div className="modal-body-content">
+                <p className="modal-helper-text">
+                  Remover a ocorrência de <strong>{occToDelete.reason}</strong> registrada para <strong>{getStudentName(occToDelete.studentId)}</strong> em {occToDelete.date}?
+                </p>
+              </div>
+              <div className="modal-actions-bar">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setDeleteConfirmId(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    onDeleteOccurrence(deleteConfirmId);
+                    setDeleteConfirmId(null);
+                  }}
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                  <span>Remover</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

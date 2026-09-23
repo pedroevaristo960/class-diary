@@ -7,6 +7,7 @@ import {
   Minus,
   X,
   Users,
+  Trash2,
 } from 'lucide-react';
 
 interface ParticipationViewProps {
@@ -14,6 +15,7 @@ interface ParticipationViewProps {
   students: Student[];
   participations: ParticipationRecord[];
   onAddParticipation: (record: ParticipationRecord) => void;
+  onDeleteParticipation: (partId: string) => void;
   onBack: () => void;
 }
 
@@ -22,6 +24,7 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
   students,
   participations,
   onAddParticipation,
+  onDeleteParticipation,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -54,6 +57,14 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
     const pos = studentParts.filter((p) => p.type === 'positive').length;
     const neg = studentParts.filter((p) => p.type === 'negative').length;
     return { pos, neg };
+  };
+
+  // Get the latest participation record for a student (to allow undo)
+  const getLastParticipation = (studentId: string) => {
+    const studentParts = participations
+      .filter((p) => p.classId === currentClass.id && p.studentId === studentId)
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    return studentParts[0] || null;
   };
 
   return (
@@ -105,6 +116,7 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
         <div className="participation-cards-grid-clean">
           {filteredStudents.map((student) => {
             const { pos, neg } = getStudentStats(student.id);
+            const lastPart = getLastParticipation(student.id);
             return (
               <div key={student.id} className="participation-item-card">
                 <div className="part-card-left">
@@ -126,7 +138,7 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
                     className="part-btn-positive"
                     onClick={() => handleRegister(student, 'positive')}
                     title="Registrar participação positiva (+)"
-                  >
+                  > <br />
                     <Plus size={13} strokeWidth={2.5} />
                     <span>Participou</span>
                   </button>
@@ -138,8 +150,20 @@ export const ParticipationView: React.FC<ParticipationViewProps> = ({
                     title="Registrar não participou (-)"
                   >
                     <Minus size={13} strokeWidth={2.5} />
+                    <br />
                     <span>Não participou</span>
                   </button>
+
+                  {lastPart && (
+                    <button
+                      type="button"
+                      className="part-btn-undo"
+                      onClick={() => onDeleteParticipation(lastPart.id)}
+                      title="Desfazer último registro"
+                    >
+                      <Trash2 size={11} strokeWidth={2} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

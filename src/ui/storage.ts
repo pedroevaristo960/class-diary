@@ -2,6 +2,16 @@ import type { AppData, Classroom, Student } from './types';
 
 const STORAGE_KEY = 'class_diary_data_v1';
 
+// Type declaration for Electron's exposed API
+declare global {
+  interface Window {
+    electronAPI?: {
+      loadData: () => Promise<AppData | null>;
+      saveData: (data: AppData) => Promise<boolean>;
+    };
+  }
+}
+
 const INITIAL_CLASSES: Classroom[] = [
   {
     id: 'class-1',
@@ -116,32 +126,73 @@ const INITIAL_DATA: AppData = {
   ]
 };
 
+function ensureShape(parsed: Record<string, unknown>): AppData {
+  return {
+    classes: (parsed.classes as Classroom[]) || [],
+    students: (parsed.students as Student[]) || [],
+    attendances: parsed.attendances as AppData['attendances'] || [],
+    evaluations: parsed.evaluations as AppData['evaluations'] || [],
+    participations: parsed.participations as AppData['participations'] || [],
+    occurrences: parsed.occurrences as AppData['occurrences'] || [],
+  };
+}
+
+/**
+ * Load app data — tries Electron file storage first, then localStorage fallback.
+ * On first launch, seeds with initial demo data.
+ */
 export function loadAppData(): AppData {
   try {
+    // Try localStorage first (synchronous, always available)
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      saveAppData(INITIAL_DATA);
-      return INITIAL_DATA;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return ensureShape(parsed);
     }
-    const parsed = JSON.parse(raw);
-    return {
-      classes: parsed.classes || [],
-      students: parsed.students || [],
-      attendances: parsed.attendances || [],
-      evaluations: parsed.evaluations || [],
-      participations: parsed.participations || [],
-      occurrences: parsed.occurrences || []
-    };
+
+    // First launch — seed with initial data
+    saveAppData(INITIAL_DATA);
+    return INITIAL_DATA;
   } catch (err) {
     console.error('Error loading app data from localStorage:', err);
     return INITIAL_DATA;
   }
 }
 
+/**
+ * Load from Electron file system (async). Call once on app start to sync.
+ */
+export async function loadAppDataAsync(): Promise<AppData | null> {
+  try {
+    if (window.electronAPI) {
+      const data = await window.electronAPI.loadData();
+      if (data) {
+        // Also write to localStorage as a live cache
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return ensureShape(data as unknown as Record<string, unknown>);
+      }
+    }
+  } catch (err) {
+    console.error('Error loading from Electron storage:', err);
+  }
+  return null;
+}
+
+/**
+ * Save app data — writes to both localStorage AND Electron file storage.
+ */
 export function saveAppData(data: AppData): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const json = JSON.stringify(data);
+    localStorage.setItem(STORAGE_KEY, json);
+
+    // Persist to Electron file system (async, fire-and-forget)
+    if (window.electronAPI) {
+      window.electronAPI.saveData(data).catch((err) => {
+        console.error('Error saving to Electron storage:', err);
+      });
+    }
   } catch (err) {
-    console.error('Error saving app data to localStorage:', err);
+    console.error('Error saving app data:', err);
   }
 }

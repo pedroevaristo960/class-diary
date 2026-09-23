@@ -41,6 +41,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [currentBatchInput, setCurrentBatchInput] = useState('');
   const [collectedNames, setCollectedNames] = useState<string[]>([]);
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isBatchTypingPhase) {
@@ -230,9 +231,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       title={`Remover ${student.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Remover ${student.name} desta turma?`)) {
-                          onDeleteStudent(student.id);
-                        }
+                        setDeleteConfirmId(student.id);
                       }}
                     >
                       <Trash2 size={13} strokeWidth={2} />
@@ -433,6 +432,57 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal: Confirmar exclusão de aluno */}
+      {deleteConfirmId && (() => {
+        const studentToDelete = students.find((s) => s.id === deleteConfirmId);
+        if (!studentToDelete) return null;
+        return (
+          <div className="modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+            <div className="modal-box animate-modal-in" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Remover aluno</h3>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setDeleteConfirmId(null)}
+                  title="Fechar"
+                >
+                  <X size={16} strokeWidth={2} />
+                </button>
+              </div>
+              <div className="modal-body-content">
+                <p className="modal-helper-text">
+                  Remover <strong>{studentToDelete.name}</strong> da turma <strong>{currentClass.name}</strong>?
+                </p>
+                <p className="delete-warning-text">
+                  Os dados de presença, avaliações, participação e ocorrências deste aluno não serão removidos do histórico da turma.
+                </p>
+              </div>
+              <div className="modal-actions-bar">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setDeleteConfirmId(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    onDeleteStudent(deleteConfirmId);
+                    setDeleteConfirmId(null);
+                  }}
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                  <span>Remover aluno</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

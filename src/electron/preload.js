@@ -1,4 +1,6 @@
-// Preload script (runs before renderer process is loaded)
-window.addEventListener("DOMContentLoaded", () => {
-    // Expose APIs or setup context bridges if needed
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("electronAPI", {
+    loadData: () => ipcRenderer.invoke("storage:load"),
+    saveData: (data) => ipcRenderer.invoke("storage:save", data),
 });

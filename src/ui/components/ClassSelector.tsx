@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import type { Classroom, Student, Period } from '../types';
-import { Plus, X, ArrowRight, Clock, Users } from 'lucide-react';
+import { Plus, X, ArrowRight, Clock, Users, Trash2 } from 'lucide-react';
 
 interface ClassSelectorProps {
   classes: Classroom[];
   students: Student[];
   onSelectClass: (c: Classroom) => void;
   onCreateClass: (data: { name: string; course: string; grade: string; period: Period }) => void;
+  onDeleteClass: (classId: string) => void;
 }
 
 export const ClassSelector: React.FC<ClassSelectorProps> = ({
@@ -14,8 +15,10 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
   students,
   onSelectClass,
   onCreateClass,
+  onDeleteClass,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [course, setCourse] = useState('');
   const [grade, setGrade] = useState('');
@@ -43,6 +46,10 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
   const getStudentCount = (classId: string) => {
     return students.filter((s) => s.classId === classId).length;
   };
+
+  const classToDelete = deleteConfirmId
+    ? classes.find((c) => c.id === deleteConfirmId)
+    : null;
 
   return (
     <div className="view-content-wrapper animate-page-in">
@@ -91,7 +98,20 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
 
               <div className="class-card-footer">
                 <span className="open-class-text">Acessar diário</span>
-                <ArrowRight size={14} strokeWidth={2} className="footer-arrow" />
+                <div className="class-card-footer-actions">
+                  <button
+                    type="button"
+                    className="card-delete-btn"
+                    title={`Excluir ${cls.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConfirmId(cls.id);
+                    }}
+                  >
+                    <Trash2 size={13} strokeWidth={2} />
+                  </button>
+                  <ArrowRight size={14} strokeWidth={2} className="footer-arrow" />
+                </div>
               </div>
             </div>
           );
@@ -196,6 +216,58 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Exclusão de Turma */}
+      {deleteConfirmId && classToDelete && (
+        <div className="modal-backdrop" onClick={() => setDeleteConfirmId(null)}>
+          <div
+            className="modal-box animate-modal-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>Excluir turma</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setDeleteConfirmId(null)}
+                title="Fechar"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="modal-body-content">
+              <p className="modal-helper-text">
+                Tem certeza que deseja excluir a turma <strong>{classToDelete.name}</strong>?
+              </p>
+              <p className="delete-warning-text">
+                Esta ação é irreversível. Todos os dados relacionados (alunos, presenças, avaliações, participações e ocorrências) também serão removidos.
+              </p>
+            </div>
+
+            <div className="modal-actions-bar">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  onDeleteClass(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                }}
+              >
+                <Trash2 size={13} strokeWidth={2} />
+                <span>Excluir turma</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

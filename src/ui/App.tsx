@@ -88,6 +88,24 @@ export function App() {
     addToast('Turma criada com sucesso!', 'success');
   };
 
+  // Delete class (cascade: remove all related data)
+  const handleDeleteClass = (classId: string) => {
+    setData((prev) => ({
+      ...prev,
+      classes: prev.classes.filter((c) => c.id !== classId),
+      students: prev.students.filter((s) => s.classId !== classId),
+      attendances: prev.attendances.filter((a) => a.classId !== classId),
+      evaluations: prev.evaluations.filter((e) => e.classId !== classId),
+      participations: prev.participations.filter((p) => p.classId !== classId),
+      occurrences: prev.occurrences.filter((o) => o.classId !== classId),
+    }));
+    if (currentClassId === classId) {
+      setCurrentClassId(null);
+      setCurrentScreen('classes');
+    }
+    addToast('Turma excluída', 'info');
+  };
+
   // 2. Add single student
   const handleAddStudent = (name: string) => {
     if (!currentClassId) return;
@@ -159,6 +177,15 @@ export function App() {
     addToast('✓ Avaliação salva', 'success');
   };
 
+  // Delete evaluation
+  const handleDeleteEvaluation = (evalId: string) => {
+    setData((prev) => ({
+      ...prev,
+      evaluations: prev.evaluations.filter((e) => e.id !== evalId),
+    }));
+    addToast('Avaliação excluída', 'info');
+  };
+
   // 7. Add participation
   const handleAddParticipation = (record: ParticipationRecord) => {
     setData((prev) => ({
@@ -168,6 +195,15 @@ export function App() {
     addToast('✓ Participação registrada', 'success');
   };
 
+  // Delete participation
+  const handleDeleteParticipation = (partId: string) => {
+    setData((prev) => ({
+      ...prev,
+      participations: prev.participations.filter((p) => p.id !== partId),
+    }));
+    addToast('Participação removida', 'info');
+  };
+
   // 8. Add occurrence / discipline
   const handleAddOccurrence = (record: OccurrenceRecord) => {
     setData((prev) => ({
@@ -175,6 +211,24 @@ export function App() {
       occurrences: [...prev.occurrences, record],
     }));
     addToast('✓ Ocorrência registrada', 'warning');
+  };
+
+  // Delete occurrence
+  const handleDeleteOccurrence = (occId: string) => {
+    setData((prev) => ({
+      ...prev,
+      occurrences: prev.occurrences.filter((o) => o.id !== occId),
+    }));
+    addToast('Ocorrência removida', 'info');
+  };
+
+  // Delete attendance session
+  const handleDeleteAttendance = (attId: string) => {
+    setData((prev) => ({
+      ...prev,
+      attendances: prev.attendances.filter((a) => a.id !== attId),
+    }));
+    addToast('Sessão de presença excluída', 'info');
   };
 
   // Students for currently selected class
@@ -220,6 +274,7 @@ export function App() {
                 setCurrentScreen('class_menu');
               }}
               onCreateClass={handleCreateClass}
+              onDeleteClass={handleDeleteClass}
             />
           )}
 
@@ -259,6 +314,7 @@ export function App() {
               students={classStudents}
               attendances={data.attendances}
               onSaveAttendance={handleSaveAttendance}
+              onDeleteAttendance={handleDeleteAttendance}
               onBack={() => setCurrentScreen('class_menu')}
             />
           )}
@@ -270,6 +326,7 @@ export function App() {
               students={classStudents}
               evaluations={data.evaluations}
               onSaveEvaluation={handleSaveEvaluation}
+              onDeleteEvaluation={handleDeleteEvaluation}
               onBack={() => setCurrentScreen('class_menu')}
             />
           )}
@@ -281,6 +338,7 @@ export function App() {
               students={classStudents}
               participations={data.participations}
               onAddParticipation={handleAddParticipation}
+              onDeleteParticipation={handleDeleteParticipation}
               onBack={() => setCurrentScreen('class_menu')}
             />
           )}
@@ -292,6 +350,7 @@ export function App() {
               students={classStudents}
               occurrences={data.occurrences}
               onAddOccurrence={handleAddOccurrence}
+              onDeleteOccurrence={handleDeleteOccurrence}
               onBack={() => setCurrentScreen('class_menu')}
             />
           )}
