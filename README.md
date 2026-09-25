@@ -1,75 +1,156 @@
-# React + TypeScript + Vite
+Class Diary
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação para gestão de turmas e controlo digital de presença.
 
-Currently, two official plugins are available:
+📖 Sobre
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O Class Diary é uma aplicação desenvolvida para professores gerirem as suas turmas e realizarem o controlo de presença de forma rápida, simples e organizada.
 
-## React Compiler
+A aplicação substitui o processo tradicional de chamada em papel, permitindo manter os registros dos alunos e o histórico das aulas em um único lugar.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+✨ Funcionalidades
 
-## Expanding the ESLint configuration
+👨‍🏫 Perfil do Professor
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+* Registo do nome do professor.
+* Definição da disciplina.
+* Organização das informações por professor.
 
-```js
+🏫 Gestão de Turmas
+
+* Criação de turmas.
+* Visualização das turmas.
+* Organização dos alunos por turma.
+
+👨‍🎓 Gestão de Alunos
+
+* Adição de alunos.
+* Visualização da lista de alunos.
+* Pesquisa de alunos.
+* Identificação individual dos estudantes.
+
+✅ Controlo de Presença
+
+* Início de uma chamada.
+* Registo de alunos presentes.
+* Registo de ausências.
+* Registo de atrasos.
+* Registo de faltas justificadas.
+* Avanço rápido entre os alunos.
+* Finalização da chamada.
+
+📋 Histórico
+
+* Consulta das chamadas realizadas.
+* Visualização dos registos de presença.
+* Acompanhamento do histórico dos alunos.
+
+📊 Acompanhamento
+
+* Resumo da presença da turma.
+* Visualização de faltas e atrasos.
+* Consulta rápida da situação de cada aluno.
+
+💾 Persistência
+
+* Salvamento dos registos realizados.
+* Preservação dos dados entre sessões.
+
+🎯 Objetivo
+
+O Class Diary foi criado para substituir o processo manual de chamada e tornar o acompanhamento das turmas mais rápido, simples e organizado.
+
+Menos tempo a fazer a chamada. Mais tempo para ensinar.
+
+⸻
+
+🛠️ Tecnologias
+
+* React
+* TypeScript
+* Vite
+
+⸻
+
+🚀 Desenvolvimento
+
+Este projeto utiliza React + TypeScript + Vite.
+
+O Vite fornece um ambiente de desenvolvimento rápido com HMR (Hot Module Replacement) e configuração inicial de ESLint.
+
+Plugins React
+
+Atualmente, o projeto pode utilizar um dos seguintes plugins oficiais:
+
+* @vitejs/plugin-react — utiliza Oxc.
+* @vitejs/plugin-react-swc — utiliza SWC.
+
+React Compiler
+
+O React Compiler não está habilitado por padrão neste projeto devido ao impacto que pode ter no desempenho de desenvolvimento e build.
+
+Para habilitá-lo, consulte a documentação oficial do React.
+
+⸻
+
+🔍 ESLint
+
+Para aplicações destinadas a produção, recomenda-se configurar o ESLint com regras type-aware.
+
+Exemplo:
+
 export default defineConfig([
   globalIgnores(['dist']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
       tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
+      // Para regras mais rigorosas:
+      // tseslint.configs.strictTypeChecked,
+      // Para regras de estilo:
+      // tseslint.configs.stylisticTypeChecked,
     ],
     languageOptions: {
       parserOptions: {
         project: ['./tsconfig.node.json', './tsconfig.app.json'],
         tsconfigRootDir: import.meta.dirname,
       },
-      // other options...
     },
   },
 ])
 
-```
+Também é possível utilizar:
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+* eslint-plugin-react-x
+* eslint-plugin-react-dom
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+para adicionar regras específicas para aplicações React.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+⸻
 
-```
+📁 Estrutura
+
+class-diary/
+├── src/
+├── public/
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── eslint.config.js
+└── README.md
+
+⸻
+
+📌 Status
+
+Em desenvolvimento.
+
+O projeto encontra-se em evolução e novas funcionalidades poderão ser adicionadas conforme as necessidades dos professores e das turmas.
+
+⸻
+
+👨‍💻 Projeto
+
+Class Diary
+
+Uma ferramenta simples para tornar a gestão diária da sala de aula mais eficiente.
