@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type {
   AppData,
-  Classroom,
-  Student,
   Screen,
   AttendanceSession,
   EvaluationItem,
@@ -10,7 +8,8 @@ import type {
   OccurrenceRecord,
   Period,
 } from './types';
-import { loadAppData, saveAppData } from './storage';
+import { apiClient } from './api/client';
+import { loadAppData, loadAppDataAsync, saveAppData } from './storage';
 import { generateId } from './utils';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
@@ -35,7 +34,18 @@ export function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Auto-save whenever data state updates
+  // Load latest data from SQLite on startup
+  useEffect(() => {
+    loadAppDataAsync().then((freshData) => {
+      if (freshData) {
+        setData(freshData);
+      }
+    }).catch((err) => {
+      console.error('Failed to load fresh SQLite data:', err);
+    });
+  }, []);
+
+  // Sync cache
   useEffect(() => {
     saveAppData(data);
   }, [data]);
@@ -70,165 +80,219 @@ export function App() {
   const currentClass = data.classes.find((c) => c.id === currentClassId) || null;
 
   // 1. Create Class
-  const handleCreateClass = (newClassData: {
+  const handleCreateClass = async (newClassData: {
     name: string;
     course: string;
     grade: string;
     period: Period;
   }) => {
-    const newClass: Classroom = {
-      id: generateId('class'),
-      ...newClassData,
-      createdAt: new Date().toISOString(),
-    };
-    setData((prev) => ({
-      ...prev,
-      classes: [...prev.classes, newClass],
-    }));
-    addToast('Turma criada com sucesso!', 'success');
+    try {
+      const created = await apiClient.classes.create(newClassData);
+      setData((prev) => ({
+        ...prev,
+        classes: [...prev.classes, created],
+      }));
+      addToast('Turma criada com sucesso!', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao criar turma', 'danger');
+    }
   };
 
   // Delete class (cascade: remove all related data)
-  const handleDeleteClass = (classId: string) => {
-    setData((prev) => ({
-      ...prev,
-      classes: prev.classes.filter((c) => c.id !== classId),
-      students: prev.students.filter((s) => s.classId !== classId),
-      attendances: prev.attendances.filter((a) => a.classId !== classId),
-      evaluations: prev.evaluations.filter((e) => e.classId !== classId),
-      participations: prev.participations.filter((p) => p.classId !== classId),
-      occurrences: prev.occurrences.filter((o) => o.classId !== classId),
-    }));
-    if (currentClassId === classId) {
-      setCurrentClassId(null);
-      setCurrentScreen('classes');
+  const handleDeleteClass = async (classId: string) => {
+    try {
+      await apiClient.classes.delete(classId);
+      setData((prev) => ({
+        ...prev,
+        classes: prev.classes.filter((c) => c.id !== classId),
+        students: prev.students.filter((s) => s.classId !== classId),
+        attendances: prev.attendances.filter((a) => a.classId !== classId),
+        evaluations: prev.evaluations.filter((e) => e.classId !== classId),
+        participations: prev.participations.filter((p) => p.classId !== classId),
+        occurrences: prev.occurrences.filter((o) => o.classId !== classId),
+      }));
+      if (currentClassId === classId) {
+        setCurrentClassId(null);
+        setCurrentScreen('classes');
+      }
+      addToast('Turma excluída', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao excluir turma', 'danger');
     }
-    addToast('Turma excluída', 'info');
   };
 
   // 2. Add single student
-  const handleAddStudent = (name: string) => {
+  const handleAddStudent = async (name: string) => {
     if (!currentClassId) return;
-    const newStudent: Student = {
-      id: generateId('std'),
-      classId: currentClassId,
-      name,
-      active: true,
-    };
-    setData((prev) => ({
-      ...prev,
-      students: [...prev.students, newStudent],
-    }));
-    addToast('✓ Aluno adicionado', 'success');
+    try {
+      const created = await apiClient.students.create({
+        classId: currentClassId,
+        name,
+      });
+      setData((prev) => ({
+        ...prev,
+        students: [...prev.students, created],
+      }));
+      addToast('✓ Aluno adicionado', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao adicionar aluno', 'danger');
+    }
   };
 
   // 3. Add multiple students (batch fast entry)
-  const handleAddMultipleStudents = (names: string[]) => {
+  const handleAddMultipleStudents = async (names: string[]) => {
     if (!currentClassId || names.length === 0) return;
-    const newStudents: Student[] = names.map((name) => ({
-      id: generateId('std'),
-      classId: currentClassId,
-      name,
-      active: true,
-    }));
-    setData((prev) => ({
-      ...prev,
-      students: [...prev.students, ...newStudents],
-    }));
-    addToast(`✓ ${names.length} alunos adicionados`, 'success');
+    try {
+      const createdList = await apiClient.students.createBatch({
+        classId: currentClassId,
+        names,
+      });
+      setData((prev) => ({
+        ...prev,
+        students: [...prev.students, ...createdList],
+      }));
+      addToast(`✓ ${createdList.length} alunos adicionados`, 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao adicionar alunos', 'danger');
+    }
   };
 
   // 4. Delete student
-  const handleDeleteStudent = (studentId: string) => {
-    setData((prev) => ({
-      ...prev,
-      students: prev.students.filter((s) => s.id !== studentId),
-    }));
-    addToast('Aluno removido', 'info');
+  const handleDeleteStudent = async (studentId: string) => {
+    try {
+      await apiClient.students.delete(studentId);
+      setData((prev) => ({
+        ...prev,
+        students: prev.students.filter((s) => s.id !== studentId),
+      }));
+      addToast('Aluno removido', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao remover aluno', 'danger');
+    }
   };
 
   // 5. Save attendance
-  const handleSaveAttendance = (session: AttendanceSession) => {
-    setData((prev) => {
-      const existingIdx = prev.attendances.findIndex(
-        (a) => a.classId === session.classId && a.date === session.date
-      );
-      if (existingIdx >= 0) {
-        const copy = [...prev.attendances];
-        copy[existingIdx] = session;
-        return { ...prev, attendances: copy };
-      }
-      return { ...prev, attendances: [...prev.attendances, session] };
-    });
-    addToast('✓ Presença registrada', 'success');
+  const handleSaveAttendance = async (session: AttendanceSession) => {
+    try {
+      const saved = await apiClient.attendance.save(session);
+      setData((prev) => {
+        const existingIdx = prev.attendances.findIndex(
+          (a) => a.classId === saved.classId && a.date === saved.date
+        );
+        if (existingIdx >= 0) {
+          const copy = [...prev.attendances];
+          copy[existingIdx] = saved;
+          return { ...prev, attendances: copy };
+        }
+        return { ...prev, attendances: [...prev.attendances, saved] };
+      });
+      addToast('✓ Presença registrada', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao registrar presença', 'danger');
+    }
   };
 
   // 6. Save evaluation
-  const handleSaveEvaluation = (evaluation: EvaluationItem) => {
-    setData((prev) => {
-      const existingIdx = prev.evaluations.findIndex((e) => e.id === evaluation.id);
-      if (existingIdx >= 0) {
-        const copy = [...prev.evaluations];
-        copy[existingIdx] = evaluation;
-        return { ...prev, evaluations: copy };
-      }
-      return { ...prev, evaluations: [...prev.evaluations, evaluation] };
-    });
-    addToast('✓ Avaliação salva', 'success');
+  const handleSaveEvaluation = async (evaluation: EvaluationItem) => {
+    try {
+      const saved = await apiClient.evaluations.save(evaluation);
+      setData((prev) => {
+        const existingIdx = prev.evaluations.findIndex((e) => e.id === saved.id);
+        if (existingIdx >= 0) {
+          const copy = [...prev.evaluations];
+          copy[existingIdx] = saved;
+          return { ...prev, evaluations: copy };
+        }
+        return { ...prev, evaluations: [...prev.evaluations, saved] };
+      });
+      addToast('✓ Avaliação salva', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao salvar avaliação', 'danger');
+    }
   };
 
   // Delete evaluation
-  const handleDeleteEvaluation = (evalId: string) => {
-    setData((prev) => ({
-      ...prev,
-      evaluations: prev.evaluations.filter((e) => e.id !== evalId),
-    }));
-    addToast('Avaliação excluída', 'info');
+  const handleDeleteEvaluation = async (evalId: string) => {
+    try {
+      await apiClient.evaluations.delete(evalId);
+      setData((prev) => ({
+        ...prev,
+        evaluations: prev.evaluations.filter((e) => e.id !== evalId),
+      }));
+      addToast('Avaliação excluída', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao excluir avaliação', 'danger');
+    }
   };
 
   // 7. Add participation
-  const handleAddParticipation = (record: ParticipationRecord) => {
-    setData((prev) => ({
-      ...prev,
-      participations: [...prev.participations, record],
-    }));
-    addToast('✓ Participação registrada', 'success');
+  const handleAddParticipation = async (record: ParticipationRecord) => {
+    try {
+      const created = await apiClient.participations.create(record);
+      setData((prev) => ({
+        ...prev,
+        participations: [...prev.participations, created],
+      }));
+      addToast('✓ Participação registrada', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao registrar participação', 'danger');
+    }
   };
 
   // Delete participation
-  const handleDeleteParticipation = (partId: string) => {
-    setData((prev) => ({
-      ...prev,
-      participations: prev.participations.filter((p) => p.id !== partId),
-    }));
-    addToast('Participação removida', 'info');
+  const handleDeleteParticipation = async (partId: string) => {
+    try {
+      await apiClient.participations.delete(partId);
+      setData((prev) => ({
+        ...prev,
+        participations: prev.participations.filter((p) => p.id !== partId),
+      }));
+      addToast('Participação removida', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao remover participação', 'danger');
+    }
   };
 
   // 8. Add occurrence / discipline
-  const handleAddOccurrence = (record: OccurrenceRecord) => {
-    setData((prev) => ({
-      ...prev,
-      occurrences: [...prev.occurrences, record],
-    }));
-    addToast('✓ Ocorrência registrada', 'warning');
+  const handleAddOccurrence = async (record: OccurrenceRecord) => {
+    try {
+      const created = await apiClient.occurrences.create(record);
+      setData((prev) => ({
+        ...prev,
+        occurrences: [...prev.occurrences, created],
+      }));
+      addToast('✓ Ocorrência registrada', 'warning');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao registrar ocorrência', 'danger');
+    }
   };
 
   // Delete occurrence
-  const handleDeleteOccurrence = (occId: string) => {
-    setData((prev) => ({
-      ...prev,
-      occurrences: prev.occurrences.filter((o) => o.id !== occId),
-    }));
-    addToast('Ocorrência removida', 'info');
+  const handleDeleteOccurrence = async (occId: string) => {
+    try {
+      await apiClient.occurrences.delete(occId);
+      setData((prev) => ({
+        ...prev,
+        occurrences: prev.occurrences.filter((o) => o.id !== occId),
+      }));
+      addToast('Ocorrência removida', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao remover ocorrência', 'danger');
+    }
   };
 
   // Delete attendance session
-  const handleDeleteAttendance = (attId: string) => {
-    setData((prev) => ({
-      ...prev,
-      attendances: prev.attendances.filter((a) => a.id !== attId),
-    }));
-    addToast('Sessão de presença excluída', 'info');
+  const handleDeleteAttendance = async (attId: string) => {
+    try {
+      await apiClient.attendance.delete(attId);
+      setData((prev) => ({
+        ...prev,
+        attendances: prev.attendances.filter((a) => a.id !== attId),
+      }));
+      addToast('Sessão de presença excluída', 'info');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao excluir presença', 'danger');
+    }
   };
 
   // Students for currently selected class
