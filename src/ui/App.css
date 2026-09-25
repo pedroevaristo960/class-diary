@@ -982,6 +982,7 @@
 
 /* Modal Windows */
 .modal-backdrop {
+  margin-top: 5em;
   position: fixed;
   inset: 0;
   background-color: rgba(17, 24, 39, 0.4);
