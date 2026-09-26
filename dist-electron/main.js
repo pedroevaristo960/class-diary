@@ -1369,12 +1369,14 @@ function createWindow() {
 	const preloadPath = path.join(import.meta.dirname, "preload.cjs");
 	const fallbackPreload = path.join(import.meta.dirname, "preload.js");
 	const resolvedPreload = fs.existsSync(preloadPath) ? preloadPath : fallbackPreload;
+	const iconPath = app.isPackaged ? path.join(process.resourcesPath, "icon-512x512.png") : path.join(import.meta.dirname, "../../public/icon-512x512.png");
 	mainWindow = new BrowserWindow({
 		width: APP_CONFIG.DEFAULT_WIDTH,
 		height: APP_CONFIG.DEFAULT_HEIGHT,
 		minWidth: APP_CONFIG.MIN_WIDTH,
 		minHeight: APP_CONFIG.MIN_HEIGHT,
 		title: APP_CONFIG.APP_NAME,
+		icon: iconPath,
 		webPreferences: {
 			preload: resolvedPreload,
 			contextIsolation: true,

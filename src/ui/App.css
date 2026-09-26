@@ -142,6 +142,12 @@
   justify-content: center;
 }
 
+.brand-logo-image {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .brand-text {
   display: flex;
   align-items: center;
@@ -401,6 +407,21 @@
   align-items: center;
   gap: 7px;
   font-size: 13px;
+}
+
+.topbar-logo {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+}
+
+.topbar-logo-image {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .breadcrumb-link {

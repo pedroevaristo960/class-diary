@@ -10,7 +10,6 @@ import {
   History,
   Printer,
   ChevronDown,
-  BookOpen,
   Keyboard,
 } from 'lucide-react';
 
@@ -49,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <div className="sidebar-brand">
         <div className="brand-logo-mark">
-          <BookOpen size={17} strokeWidth={2.2} />
+          <img src="./icon.svg" alt="Diário de Turma Logo" className="brand-logo-image" />
         </div>
         <div className="brand-text">
           <span className="brand-title">Diário de Turma</span>

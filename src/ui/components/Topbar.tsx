@@ -30,6 +30,9 @@ export const Topbar: React.FC<TopbarProps> = ({
   return (
     <header className="app-topbar no-print">
       <div className="topbar-breadcrumb">
+        <div className="topbar-logo">
+          <img src="./icon.svg" alt="Diário de Turma Logo" className="topbar-logo-image" />
+        </div>
         <button
           type="button"
           className="breadcrumb-item breadcrumb-link"
